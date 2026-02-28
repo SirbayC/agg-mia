@@ -1,12 +1,12 @@
 import os
 import time
 import requests
+from datetime import datetime
 from datasets import load_dataset, Dataset
 
 OUTPUT_DIR = "./data/seen"
-NUM_SAMPLES = 100
-DATASET_NAME = "bigcode/the-stack-v2-train-smol-ids" 
-OUTPUT_FILENAME = "seen_python_100.parquet"
+NUM_SAMPLES = 10
+DATASET_NAME = "bigcode/the-stack-v2-train-smol-ids"
 
 SWH_TOKEN = os.environ.get("SWH_TOKEN")
 
@@ -111,7 +111,9 @@ def main():
     
     # Convert the list of dicts to a HF Dataset and save it
     hf_dataset = Dataset.from_list(samples)
-    output_path = os.path.join(OUTPUT_DIR, OUTPUT_FILENAME)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"seen_python_{NUM_SAMPLES}_{timestamp}.parquet"
+    output_path = os.path.join(OUTPUT_DIR, output_filename)
     hf_dataset.to_parquet(output_path)
     
     print(f"Successfully saved to {output_path}")
