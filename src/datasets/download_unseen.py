@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 # Configuration
 OUTPUT_DIR = "./data/unseen"
-NUM_SAMPLES = 1000
+NUM_SAMPLES = 10
 DATASET_NAME = "AISE-TUDelft/the-heap"
 
 def main():
