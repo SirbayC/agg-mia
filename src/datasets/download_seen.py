@@ -121,5 +121,7 @@ def main():
     print(f"    from datasets import load_dataset")
     print(f"    ds = load_dataset('parquet', data_files='{output_path}')")
 
+    os._exit(0)
+
 if __name__ == "__main__":
     main()
