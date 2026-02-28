@@ -6,7 +6,7 @@ from datasets import load_dataset, Dataset
 from tqdm import tqdm
 
 OUTPUT_DIR = "./data/seen"
-NUM_SAMPLES = 10
+NUM_SAMPLES = 1000
 DATASET_NAME = "bigcode/the-stack-v2-train-smol-ids"
 
 SWH_TOKEN = os.environ.get("SWH_TOKEN")
