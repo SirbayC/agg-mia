@@ -1,4 +1,5 @@
 import argparse
+import os
 from datasets import load_dataset
 
 
@@ -7,20 +8,20 @@ def parse_args():
     parser.add_argument(
         "--parquet-path",
         type=str,
-        default="./data/seen/seen_python_100.parquet",
-        help="Path to the parquet file.",
+        default=None,
+        help="Path to the parquet file. If not specified, uses the first parquet file in ./data/seen/",
     )
     parser.add_argument(
         "--num-files",
         type=int,
-        default=10,
+        default=1,
         help="Number of files to display.",
     )
     parser.add_argument(
         "--preview-chars",
         type=int,
-        default=1000,
-        help="How many content characters to print per file.",
+        default=None,
+        help="How many content characters to print per file. If not specified, shows complete file.",
     )
     return parser.parse_args()
 
@@ -28,10 +29,26 @@ def parse_args():
 def main():
     args = parse_args()
 
-    ds = load_dataset("parquet", data_files=args.parquet_path, split="train")
+    # Auto-detect parquet file if not specified
+    parquet_path = args.parquet_path
+    if parquet_path is None:
+        seen_dir = "./data/seen"
+        parquet_files = sorted([f for f in os.listdir(seen_dir) if f.endswith(".parquet")])
+        if not parquet_files:
+            print(f"Error: No parquet files found in {seen_dir}")
+            return
+        parquet_path = os.path.join(seen_dir, parquet_files[0])
+        print(f"Auto-detected parquet file: {parquet_path}")
+
+    ds = load_dataset("parquet", data_files=parquet_path, split="train")
 
     total = len(ds)
-    print(f"Loaded {total} rows from {args.parquet_path}")
+    
+    # Count rows with non-empty content
+    non_empty_count = sum(1 for row in ds if row.get("content", "").strip())
+    
+    print(f"Loaded {total} rows from {parquet_path}")
+    print(f"Rows with non-empty content: {non_empty_count}/{total}")
     print("=" * 80)
 
     shown = min(args.num_files, total)
@@ -40,11 +57,17 @@ def main():
         path = row.get("path") or row.get("filename") or "<unknown_path>"
         blob_id = row.get("blob_id", "<no_blob_id>")
         content = row.get("content", "")
-        preview = content[: args.preview_chars]
+        
+        # Show complete file if preview_chars is None
+        if args.preview_chars is None:
+            preview = content
+        else:
+            preview = content[: args.preview_chars]
 
         print(f"[{i + 1}/{shown}] {path}")
         print(f"blob_id: {blob_id}")
-        print("--- content preview ---")
+        print(f"Content length: {len(content)} characters")
+        print("--- content ---")
         print(preview)
         print("=" * 80)
 
