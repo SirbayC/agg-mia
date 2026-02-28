@@ -8,17 +8,22 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --mem-per-cpu=8000M
 #SBATCH --account=Education-EEMCS-Courses-CSE3000
-#SBATCH --output=/scratch/cosminvasilesc/TRAWIC/outputs/logs/slurm-%j.out
+#SBATCH --output=/scratch/cosminvasilesc/AGG-MIA/outputs/logs/slurm-%j.out
 
+####################################
 # PREFLIGHT CHECKS:
 # - time
 # - partition
-# --limit_per_class=50
+# - mia
+
+export MIA="trawic" # trawic / ezmia / miaadv
+export LLM="bigcode/starcoder2-3b" # bigcode/starcoder2-3b / bigcode/starcoder2-7b / bigcode/starcoder2-15b
+####################################
 
 set -euo pipefail
 
-ROOT_DIR="/scratch/cosminvasilesc/TRAWIC"
-REPO_DIR="$ROOT_DIR/TraWiC"
+ROOT_DIR="/scratch/cosminvasilesc/AGG-MIA"
+REPO_DIR="$ROOT_DIR/agg-mia"
 CONDA_ENV_PATH="$ROOT_DIR/ENV"
 HF_CACHE_DIR="/scratch/cosminvasilesc/HF_CACHE"
 
@@ -40,7 +45,6 @@ module purge
 module load miniconda3
 
 export HF_HOME="$HF_CACHE_DIR"
-export PYTHONUTF8=1
 export HF_HUB_OFFLINE=1
 
 conda activate "$CONDA_ENV_PATH"
@@ -52,37 +56,10 @@ echo "=========================================="
 
 cd "$REPO_DIR"
 
-# ── Step 1: Model Inference ────────────────────────────────────────────────────
-echo "[$(date)] Running SantaCoder inference..."
-python -u src/main_santacoder.py \
+python -u src/main.py \
   --output_dir="$OUTDIR" \
-  --limit_per_class=500
-
-# ── Step 2: Build Classification Dataset ──────────────────────────────────────
-echo "[$(date)] Building classification dataset..."
-python -u src/data/dataset_builder.py \
-  --input_dir="$OUTDIR" \
-  --output_dir="$OUTDIR/rf_data" \
-  --syntactic_threshold=100 \
-  --semantic_threshold=20
-
-# ── Step 3: Train Classifier ───────────────────────────────────────────────────
-echo "[$(date)] Training Random Forest classifier..."
-python -u src/inspector_train.py \
-  --input_dir="$OUTDIR/rf_data" \
-  --output_dir="$OUTDIR" \
-  --syntactic_threshold=100 \
-  --semantic_threshold=20 \
-  --visualisation=True
-
-# ── Step 4: Evaluate Classifier ────────────────────────────────────────────────
-echo "[$(date)] Evaluating classifier..."
-python -u src/inspector_test.py \
-  --input_dir="$OUTDIR/rf_data" \
-  --model_dir="$OUTDIR" \
-  --output_dir="$OUTDIR" \
-  --syntactic_threshold=100 \
-  --semantic_threshold=20
+  --mia="$MIA" \
+  --llm="$LLM"
 
 echo "=========================================="
 echo "Job completed at: $(date)"
