@@ -31,6 +31,7 @@ def fetch_file_content(file_obj, token=None):
 
     headers = {}
     if token:
+        print("Found authorization token")
         headers["Authorization"] = f"Bearer {token}"
 
     while True:
@@ -62,7 +63,6 @@ def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     print(f"Fetching {NUM_SAMPLES} Python files from {DATASET_NAME} via SWH API...")
-    print("Ensure you have authenticated via `hf auth login` to access the metadata.")
     
     # We use streaming=True because the dataset is hundreds of GBs.
     try:
