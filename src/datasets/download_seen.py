@@ -3,6 +3,7 @@ import time
 import requests
 from datetime import datetime
 from datasets import load_dataset, Dataset
+from tqdm import tqdm
 
 OUTPUT_DIR = "./data/seen"
 NUM_SAMPLES = 10
@@ -77,6 +78,8 @@ def main():
     samples = []
     
     # Iterate through stream rows and collect Python files with retrieved content.
+    pbar = tqdm(total=NUM_SAMPLES, desc="Downloading files", unit="file")
+    
     for row in ds:
         files = row.get("files", [])
         if not isinstance(files, list):
@@ -95,7 +98,7 @@ def main():
                 continue
 
             samples.append(enriched)
-            print(f"Successfully downloaded {len(samples)}/{NUM_SAMPLES} files...", end="\r")
+            pbar.update(1)
             
             # Sleep slightly to avoid hammering the API too hard
             time.sleep(0.5)
@@ -104,8 +107,10 @@ def main():
                 break
 
         if len(samples) >= NUM_SAMPLES:
-            print("\nFinished downloading files.")
             break
+    
+    pbar.close()
+    print("Finished downloading files.")
             
     print(f"Collected {len(samples)} samples. Saving to Parquet...")
     
