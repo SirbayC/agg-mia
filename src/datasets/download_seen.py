@@ -31,7 +31,6 @@ def fetch_file_content(file_obj, token=None):
 
     headers = {}
     if token:
-        print("Found authorization token")
         headers["Authorization"] = f"Bearer {token}"
 
     while True:
@@ -80,6 +79,9 @@ def main():
     # Iterate through stream rows and collect Python files with retrieved content.
     pbar = tqdm(total=NUM_SAMPLES, desc="Downloading files", unit="file")
     
+    if SWH_TOKEN:
+        print("Found authorization token")
+
     for row in ds:
         files = row.get("files", [])
         if not isinstance(files, list):
@@ -99,10 +101,6 @@ def main():
 
             samples.append(enriched)
             pbar.update(1)
-            
-            # Sleep slightly to avoid hammering the API too hard
-            time.sleep(0.5)
-            
             if len(samples) >= NUM_SAMPLES:
                 break
 
