@@ -30,13 +30,18 @@ def find_first_parquet_file(directory: str) -> str:
     return path
 
 
-def load_parquet_samples(file_path: str, sample_fraction: float = 1.0) -> Tuple[List[str], List[str]]:
+def load_parquet_samples(
+    file_path: str,
+    sample_fraction: float = 1.0,
+    seed: int = 42,
+) -> Tuple[List[str], List[str]]:
     """
     Load samples from a parquet file.
 
     Args:
         file_path: Path to parquet file
         sample_fraction: Fraction of data to load (0.0 to 1.0)
+        seed: Random seed for deterministic sampling
 
     Returns:
         Tuple of (texts, blob_ids) where texts are code content strings and blob_ids are identifiers
@@ -63,7 +68,8 @@ def load_parquet_samples(file_path: str, sample_fraction: float = 1.0) -> Tuple[
     # Sample fraction
     if sample_fraction < 1.0:
         num_samples = max(1, int(len(samples) * sample_fraction))
-        indices = random.sample(range(len(samples)), num_samples)
+        sampler = random.Random(seed)
+        indices = sampler.sample(range(len(samples)), num_samples)
         samples = [samples[i] for i in indices]
         blob_ids = [blob_ids[i] for i in indices]
         logger.info(f"After sampling ({sample_fraction:.1%}): {len(samples)} samples")
@@ -75,6 +81,7 @@ def load_data(
     data_dir: str = "./data",
     sample_fraction: float = 1.0,
     train_fraction: float = 0.8,
+    seed: int = 42,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Load data from seen and unseen parquet files.
@@ -83,6 +90,7 @@ def load_data(
         data_dir: Path to data directory (contains seen/ and unseen/ subdirs)
         sample_fraction: Fraction of data to load (0.0 to 1.0)
         train_fraction: Fraction to use for training (rest for testing)
+        seed: Random seed for sampling and train/test split
 
     Returns:
         Tuple of (train_df, test_df) pandas DataFrames with columns ['text', 'blob_id', 'label']
@@ -100,14 +108,22 @@ def load_data(
     seen_dir = os.path.join(data_dir, "seen")
     logger.info(f"Loading seen samples from {seen_dir}")
     seen_parquet = find_first_parquet_file(seen_dir)
-    seen_samples, seen_blob_ids = load_parquet_samples(seen_parquet, sample_fraction)
+    seen_samples, seen_blob_ids = load_parquet_samples(
+        seen_parquet,
+        sample_fraction,
+        seed=seed,
+    )
     seen_labels = [1] * len(seen_samples)  # Label: 1 = seen
 
     # Load unseen samples
     unseen_dir = os.path.join(data_dir, "unseen")
     logger.info(f"Loading unseen samples from {unseen_dir}")
     unseen_parquet = find_first_parquet_file(unseen_dir)
-    unseen_samples, unseen_blob_ids = load_parquet_samples(unseen_parquet, sample_fraction)
+    unseen_samples, unseen_blob_ids = load_parquet_samples(
+        unseen_parquet,
+        sample_fraction,
+        seed=seed,
+    )
     unseen_labels = [0] * len(unseen_samples)  # Label: 0 = unseen
 
     # Combine all samples into a DataFrame
@@ -124,7 +140,7 @@ def load_data(
         df,
         train_size=train_fraction,
         stratify=df['label'],
-        random_state=42
+        random_state=seed
     )
     train_df = train_df.reset_index(drop=True)
     test_df = test_df.reset_index(drop=True)

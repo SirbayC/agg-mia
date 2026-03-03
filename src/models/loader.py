@@ -9,6 +9,10 @@ logger = logging.getLogger(__name__)
 def load_model_and_tokenizer(model_id: str) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
+    from transformers import logging as hf_logging
+
+    # Suppress transformers' verbose logging to avoid noisy progress bars
+    hf_logging.set_verbosity_error()
 
     logger.info("Loading tokenizer: %s", model_id)
     tokenizer = AutoTokenizer.from_pretrained(model_id)
@@ -32,7 +36,7 @@ def load_model_and_tokenizer(model_id: str) -> Tuple[AutoModelForCausalLM, AutoT
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
         device_map="auto",
-        torch_dtype=torch_dtype,
+        dtype=torch_dtype,
     )
 
     model.eval()

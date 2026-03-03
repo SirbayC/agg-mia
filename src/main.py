@@ -6,10 +6,12 @@ Handles argument parsing, data loading, and MIA execution.
 import argparse
 import logging
 import os
+import random
 import sys
 import traceback
 from typing import Type
 
+import numpy as np
 import pandas as pd
 
 from src.models.loader import load_model_and_tokenizer
@@ -22,6 +24,21 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+def set_global_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+    except Exception:
+        logger.warning("Torch not available while setting seed; continuing with Python/NumPy seed only")
 
 
 def parse_args():
@@ -69,6 +86,12 @@ def parse_args():
         default=1,
         help="Batch size for processing",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed used across Python, NumPy, PyTorch, and data splitting/sampling",
+    )
 
     # Output arguments
     parser.add_argument(
@@ -99,12 +122,15 @@ def load_mia_class(mia_name: str) -> Type[MIAttack]:
 def main():
     args = parse_args()
 
+    set_global_seed(args.seed)
+
     logger.info(f"Starting AGG-MIA experiment")
     logger.info(f"  MIA: {args.mia}")
     logger.info(f"  Model: {args.model}")
     logger.info(f"  Data directory: {args.data_dir}")
     logger.info(f"  Sample fraction: {args.sample_fraction}")
     logger.info(f"  Train size: {args.train_test_split}")
+    logger.info(f"  Seed: {args.seed}")
 
 
     # Create output directory
@@ -118,6 +144,7 @@ def main():
             data_dir=args.data_dir,
             sample_fraction=args.sample_fraction,
             train_fraction=args.train_test_split,
+            seed=args.seed,
         )
         logger.info(
             f"Data loaded successfully:"
