@@ -16,7 +16,7 @@ from src.mias.mia_interface import MIAttack
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ def main():
     logger.info(f"  Model: {args.model}")
     logger.info(f"  Data directory: {args.data_dir}")
     logger.info(f"  Sample fraction: {args.sample_fraction}")
-    logger.info(f"  Train/test split: {args.train_test_split}")
+    logger.info(f"  Train size: {args.train_test_split}")
 
 
     # Create output directory
@@ -115,7 +115,7 @@ def main():
         train_df, test_df = load_data(
             data_dir=args.data_dir,
             sample_fraction=args.sample_fraction,
-            train_test_split=args.train_test_split,
+            train_fraction=args.train_test_split,
         )
         logger.info(
             f"Data loaded successfully:"

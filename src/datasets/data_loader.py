@@ -68,7 +68,7 @@ def load_parquet_samples(file_path: str, sample_fraction: float = 1.0) -> List[s
 def load_data(
     data_dir: str = "./data",
     sample_fraction: float = 1.0,
-    train_test_split: float = 0.8,
+    train_fraction: float = 0.8,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Load data from seen and unseen parquet files.
@@ -76,7 +76,7 @@ def load_data(
     Args:
         data_dir: Path to data directory (contains seen/ and unseen/ subdirs)
         sample_fraction: Fraction of data to load (0.0 to 1.0)
-        train_test_split: Fraction to use for training (rest for testing)
+        train_fraction: Fraction to use for training (rest for testing)
 
     Returns:
         Tuple of (train_df, test_df) pandas DataFrames with columns ['text', 'label']
@@ -85,9 +85,9 @@ def load_data(
     if not (0.0 < sample_fraction <= 1.0):
         raise ValueError(f"sample_fraction must be between 0.0 and 1.0, got {sample_fraction}")
 
-    if not (0.0 < train_test_split < 1.0):
+    if not (0.0 < train_fraction < 1.0):
         raise ValueError(
-            f"train_test_split must be between 0.0 and 1.0, got {train_test_split}"
+            f"train_fraction must be between 0.0 and 1.0, got {train_fraction}"
         )
 
     # Load seen samples
@@ -115,7 +115,7 @@ def load_data(
     # Stratified split into train and test (maintains same seen/unseen ratio in both splits)
     train_df, test_df = train_test_split(
         df,
-        train_size=train_test_split,
+        train_size=train_fraction,
         stratify=df['label'],
         random_state=42
     )

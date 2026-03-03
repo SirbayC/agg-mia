@@ -1,13 +1,13 @@
 import logging
 from typing import Tuple
 
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
 logger = logging.getLogger(__name__)
 
 
 def load_model_and_tokenizer(model_id: str) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
     logger.info("Loading tokenizer: %s", model_id)
     tokenizer = AutoTokenizer.from_pretrained(model_id)
 
