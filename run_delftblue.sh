@@ -59,7 +59,7 @@ cd "$REPO_DIR"
 python -u src/main.py \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
-  --llm="$LLM"
+  --model="$LLM"
 
 echo "=========================================="
 echo "Job completed at: $(date)"

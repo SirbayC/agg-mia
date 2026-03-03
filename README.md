@@ -12,10 +12,13 @@ Binary classification evaluation, using as ground truth the **seen** and **unsee
 Target model is StarCoder2, with the following variants (and sources for **seen** files):
   - bigcode/starcoder2-3b trained on the-stack-v2-train-smol 
   - bigcode/starcoder2-7b trained on the-stack-v2-train-smol 
-  - bigcode/starcoder2-15b trained on the-stack-v2-train-full
-
-To download (smol) seen files:
-1. set SWH_TOKEN token in the environment from https://archive.softwareheritage.org/oidc/profile/#tokens.
-2. run from root dir `python src/datasets/download_seen.py`.
+  - bigcode/starcoder2-15b trained on the-stack-v2-train-full (TODO adapt dataset loading script)
 
 For **unseen** files, we rely on The Heap, deduplicated against The Stack v2 (exact_duplicates_stackv2 and near_duplicates_stackv2 set to false).
+
+To download (smol) files:
+1. `module load miniconda3 && conda activate /scratch/cosminvasilesc/AGG-MIA/ENV`
+1. set SWH_TOKEN token in the environment from https://archive.softwareheritage.org/oidc/profile/#tokens.
+1. run from root dir `python src/datasets/download_seen.py`.
+1. run from root dir `python src/datasets/download_unseen.py`.
+1. run from root dir `python src/datasets/show_parquet_samples.py`.
