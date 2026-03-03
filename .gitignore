@@ -48,3 +48,5 @@ JPlag.jar
 /.venv
 
 /data
+
+/output_runs

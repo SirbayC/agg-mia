@@ -30,7 +30,7 @@ def find_first_parquet_file(directory: str) -> str:
     return path
 
 
-def load_parquet_samples(file_path: str, sample_fraction: float = 1.0) -> List[str]:
+def load_parquet_samples(file_path: str, sample_fraction: float = 1.0) -> Tuple[List[str], List[str]]:
     """
     Load samples from a parquet file.
 
@@ -39,7 +39,7 @@ def load_parquet_samples(file_path: str, sample_fraction: float = 1.0) -> List[s
         sample_fraction: Fraction of data to load (0.0 to 1.0)
 
     Returns:
-        List of text samples (code content)
+        Tuple of (texts, blob_ids) where texts are code content strings and blob_ids are identifiers
     """
     logger.info(f"Loading parquet file: {file_path}")
 
@@ -48,21 +48,27 @@ def load_parquet_samples(file_path: str, sample_fraction: float = 1.0) -> List[s
 
     # Get all samples
     samples = []
+    blob_ids = []
     for row in ds:
         content = row.get("content", "")
         # Only include samples with non-empty content
         if content.strip():
             samples.append(content)
+            # Try to get blob_id, fall back to repo+path or just use index
+            blob_id = row.get("blob_id") or f"{row.get('repo', 'unknown')}/{row.get('path', 'unknown')}"
+            blob_ids.append(str(blob_id))
 
     logger.info(f"Samples with non-empty content: {len(samples)}")
 
     # Sample fraction
     if sample_fraction < 1.0:
         num_samples = max(1, int(len(samples) * sample_fraction))
-        samples = random.sample(samples, num_samples)
+        indices = random.sample(range(len(samples)), num_samples)
+        samples = [samples[i] for i in indices]
+        blob_ids = [blob_ids[i] for i in indices]
         logger.info(f"After sampling ({sample_fraction:.1%}): {len(samples)} samples")
 
-    return samples
+    return samples, blob_ids
 
 
 def load_data(
@@ -79,7 +85,7 @@ def load_data(
         train_fraction: Fraction to use for training (rest for testing)
 
     Returns:
-        Tuple of (train_df, test_df) pandas DataFrames with columns ['text', 'label']
+        Tuple of (train_df, test_df) pandas DataFrames with columns ['text', 'blob_id', 'label']
         where label is 1 for seen and 0 for unseen
     """
     if not (0.0 < sample_fraction <= 1.0):
@@ -94,19 +100,20 @@ def load_data(
     seen_dir = os.path.join(data_dir, "seen")
     logger.info(f"Loading seen samples from {seen_dir}")
     seen_parquet = find_first_parquet_file(seen_dir)
-    seen_samples = load_parquet_samples(seen_parquet, sample_fraction)
+    seen_samples, seen_blob_ids = load_parquet_samples(seen_parquet, sample_fraction)
     seen_labels = [1] * len(seen_samples)  # Label: 1 = seen
 
     # Load unseen samples
     unseen_dir = os.path.join(data_dir, "unseen")
     logger.info(f"Loading unseen samples from {unseen_dir}")
     unseen_parquet = find_first_parquet_file(unseen_dir)
-    unseen_samples = load_parquet_samples(unseen_parquet, sample_fraction)
+    unseen_samples, unseen_blob_ids = load_parquet_samples(unseen_parquet, sample_fraction)
     unseen_labels = [0] * len(unseen_samples)  # Label: 0 = unseen
 
     # Combine all samples into a DataFrame
     df = pd.DataFrame({
         'text': seen_samples + unseen_samples,
+        'blob_id': seen_blob_ids + unseen_blob_ids,
         'label': seen_labels + unseen_labels
     })
 

@@ -10,6 +10,8 @@ import sys
 import traceback
 from typing import Type
 
+import pandas as pd
+
 from src.models.loader import load_model_and_tokenizer
 from src.datasets.data_loader import load_data
 from src.mias.mia_interface import MIAttack
@@ -160,12 +162,16 @@ def main():
         test_scores = mia.compute_scores(test_df['text'].tolist())
         logger.info(f"Scores computed: {len(test_scores)} scores")
 
-        # Add scores to test dataframe
-        test_df['score'] = test_scores
+        # Create results dataframe with only blob_id, label, score (no content text)
+        results_df = pd.DataFrame({
+            'blob_id': test_df['blob_id'],
+            'label': test_df['label'],
+            'score': test_scores
+        })
 
         # Save results as CSV
         results_file = os.path.join(args.output_dir, "results.csv")
-        test_df.to_csv(results_file, index=False)
+        results_df.to_csv(results_file, index=False)
         logger.info(f"Results saved to {results_file}")
 
     except Exception as e:

@@ -18,6 +18,3 @@ cd "${REMOTE_DIR}"
 git pull
 sbatch run_delftblue.sh
 EOF
-
-# Tun this on local machine
-# Then, to see live logs on delftblue:  tail -f "$(ls -t | head -n 1)"

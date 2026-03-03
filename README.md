@@ -22,3 +22,10 @@ To download (smol) files:
 1. run from root dir `python src/datasets/download_seen.py`.
 1. run from root dir `python src/datasets/download_unseen.py`.
 1. run from root dir `python src/datasets/show_parquet_samples.py`.
+
+## Development
+
+1. make local changes
+1. sync and submit with `./submit_delftblue.sh`
+1. see latest logs with `tail -f "$(ls -t | head -n 1)"`
+1. copy outputs with `scp -r cosminvasilesc@login.delftblue.tudelft.nl:/scratch/cosminvasilesc/AGG-MIA/outputs/runs/* "C:\Coding_projects\AGG_MIA\output_runs" && ssh delftblue "rm -rf /scratch/cosminvasilesc/AGG-MIA/outputs/runs/*"`
