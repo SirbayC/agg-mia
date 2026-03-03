@@ -56,7 +56,7 @@ echo "=========================================="
 
 cd "$REPO_DIR"
 
-python -u src/main.py \
+python -u -m src.main \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
   --model="$LLM"
