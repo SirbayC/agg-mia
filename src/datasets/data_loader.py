@@ -7,6 +7,7 @@ Handles sampling and train/test splitting.
 import logging
 import os
 import random
+import hashlib
 from typing import List, Tuple
 
 import pandas as pd
@@ -54,13 +55,18 @@ def load_parquet_samples(
     # Get all samples
     samples = []
     blob_ids = []
-    for row in ds:
+    
+    for idx, row in enumerate(ds):
         content = row.get("content", "")
         # Only include samples with non-empty content
         if content.strip():
             samples.append(content)
-            # Try to get blob_id, fall back to repo+path or just use index
-            blob_id = row.get("blob_id") or f"{row.get('repo', 'unknown')}/{row.get('path', 'unknown')}"
+            # Try to get blob_id, otherwise generate from content
+            blob_id = row.get("blob_id")
+            if not blob_id:
+                # Generate SHA1 hash of content (deterministic)
+                blob_id = hashlib.sha1(content.encode()).hexdigest()
+                logger.debug(f"No blob_id found, using content hash: {blob_id}")
             blob_ids.append(str(blob_id))
 
     logger.info(f"Samples with non-empty content: {len(samples)}")

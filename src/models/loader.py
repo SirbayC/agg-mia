@@ -9,10 +9,11 @@ logger = logging.getLogger(__name__)
 def load_model_and_tokenizer(model_id: str) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
-    from transformers import logging as hf_logging
+    from transformers.utils import logging as hf_logging
 
-    # Suppress transformers' verbose logging to avoid noisy progress bars
+    # Suppress transformers' logging and progress bars
     hf_logging.set_verbosity_error()
+    hf_logging.disable_progress_bar()
 
     logger.info("Loading tokenizer: %s", model_id)
     tokenizer = AutoTokenizer.from_pretrained(model_id)
