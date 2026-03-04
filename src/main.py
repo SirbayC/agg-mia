@@ -184,10 +184,20 @@ def main():
         traceback.print_exc()
         return 1
 
-    # Compute scores on test set
-    logger.info("Computing MIA scores on test set...")
+    # Train MIA on training set
+    logger.info("Training MIA on training set...")
     try:
-        test_scores = mia.compute_scores(test_df['text'].tolist())
+        mia.train(train_df)
+        logger.info("MIA training completed")
+    except Exception as e:
+        logger.error(f"Failed to train MIA: {e}")
+        traceback.print_exc()
+        return 1
+
+    # Evaluate MIA on test set
+    logger.info("Evaluating MIA on test set...")
+    try:
+        test_scores = mia.evaluate(test_df)
         logger.info(f"Scores computed: {len(test_scores)} scores")
 
         # Create results dataframe with blob_id, label, score

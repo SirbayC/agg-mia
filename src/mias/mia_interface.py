@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import List
 
+import pandas as pd
+
+
 class MIAttack(ABC):
     """Abstract base class for Membership Inference Attacks."""
 
@@ -16,12 +19,23 @@ class MIAttack(ABC):
         pass
 
     @abstractmethod
-    def compute_scores(self, texts: List[str]) -> List[float]:
+    def train(self, train_df: pd.DataFrame) -> None:
         """
-        Compute MIA scores for a list of texts.
+        Train the MIA (e.g., train a classifier).
 
         Args:
-            texts: List of text samples to score
+            train_df: DataFrame with columns ['text', 'blob_id', 'label']
+                     where label is 1 for seen (member) and 0 for unseen (non-member)
+        """
+        pass
+
+    @abstractmethod
+    def evaluate(self, test_df: pd.DataFrame) -> List[float]:
+        """
+        Evaluate the MIA on test samples.
+
+        Args:
+            test_df: DataFrame with columns ['text', 'blob_id', 'label']
 
         Returns:
             List of scores (higher score = more likely to be a member)
