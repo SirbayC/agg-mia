@@ -66,7 +66,6 @@ def load_parquet_samples(
             if not blob_id:
                 # Generate SHA1 hash of content (deterministic)
                 blob_id = hashlib.sha1(content.encode()).hexdigest()
-                logger.debug(f"No blob_id found, using content hash: {blob_id}")
             blob_ids.append(str(blob_id))
 
     logger.info(f"Samples with non-empty content: {len(samples)}")

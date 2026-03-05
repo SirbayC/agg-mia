@@ -7,7 +7,9 @@ masked code elements (function names, variables, comments, etc.).
 
 import logging
 import re
+import time
 from typing import Dict, Optional
+import os
 
 import torch
 from fuzzywuzzy import fuzz
@@ -115,8 +117,13 @@ def _create_infill_prompt(code: str, element: Dict) -> str:
     Returns:
         FIM prompt string
     """
-    prefix = code[:element["start"]]
-    suffix = code[element["end"]:]
+    # Limit context to 500 chars before and after the element
+    max_context = 500
+    prefix_start = max(0, element["start"] - max_context)
+    suffix_end = element["end"] + max_context
+    
+    prefix = code[prefix_start:element["start"]]
+    suffix = code[element["end"]:suffix_end]
     prompt = f"{FIM_TOKENS['prefix']}{prefix}{FIM_TOKENS['suffix']}{suffix}{FIM_TOKENS['middle']}"
     return prompt
 
@@ -142,20 +149,26 @@ def _run_infill(
         Generated infill text
     """
     try:
-        
         # Tokenize
+        start = time.time()
         inputs = tokenizer(
             prompt,
             return_tensors="pt",
             truncation=True,
             max_length=2048 - max_tokens
         ).to(device)
+        tokenize_time = time.time() - start
+        logger.debug(f"    Tokenization took {tokenize_time:.3f}s, input_ids shape: {inputs.input_ids.shape}")
         
         # Check if input is too long
         if inputs.input_ids.shape[1] + max_tokens > 2048:
+            logger.warning(f"    Input too long: {inputs.input_ids.shape[1]} tokens + {max_tokens} max_tokens > 2048")
             return "too_many_tokens"
         
         # Generate
+        logger.debug(f"    Starting model generation with max_tokens={max_tokens}...")
+        logger.debug(f"    Input: {prompt}\n    ======================")
+        gen_start = time.time()
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
@@ -166,9 +179,14 @@ def _run_infill(
                 pad_token_id=tokenizer.pad_token_id,
                 eos_token_id=tokenizer.eos_token_id,
             )
-        
+        gen_time = time.time() - gen_start
+        logger.debug(f"    Model generation took {gen_time:.3f}s, output shape: {outputs.shape}")
+
         # Decode
         full_output = tokenizer.decode(outputs[0], skip_special_tokens=False)
+        logger.debug(f"    Output: {full_output}\n    ^^^^^^^^^^^^^^^^^^")
+
+        os._exit(1)
         
         # Extract generated infill after <fim_middle>
         if FIM_TOKENS['middle'] in full_output:
@@ -181,7 +199,7 @@ def _run_infill(
         return None
         
     except Exception as e:
-        logger.warning(f"Error during infill: {e}")
+        logger.warning(f"    Error during infill: {e}")
         return None
 
 
@@ -265,9 +283,18 @@ def extract_features(
     }
     
     # Extract all elements
+    logger.debug(f"Extracting elements from code (length: {len(code)} chars)")
+    start_time = time.time()
     elements = _extract_elements(code)
+    extract_time = time.time() - start_time
+    logger.debug(f"Element extraction took {extract_time:.3f}s")
+    
+    # Log element counts
+    total_elements = sum(len(el) for el in elements.values())
+    logger.info(f"Extracted {total_elements} elements: {', '.join(f'{k}={len(v)}' for k, v in elements.items())}")
     
     # Process each element type
+    processed_count = 0
     for level, element_list in elements.items():
         # Determine similarity metric (exact for syntax, fuzzy for semantic)
         metric = "exact" if level in ["function_names", "class_names", "variable_names"] else "fuzzy"
@@ -280,13 +307,21 @@ def extract_features(
             
             # Skip empty or very short elements
             if not target or len(target.strip()) < 2:
+                logger.debug(f"  Skipping short {level} element: '{target[:20]}'")
                 continue
             
-            # Run model infill
+            processed_count += 1
+            logger.debug(f"  [{processed_count}/{total_elements}] Processing {level}: '{target[:30]}...'")
+            
+            # Run model infill (this is typically the bottleneck)
+            start_time = time.time()
             output = _run_infill(model, tokenizer, prompt, device)
+            elapsed = time.time() - start_time
+            logger.debug(f"  Model inference took {elapsed:.2f}s, output: '{str(output)[:50] if output else 'None'}'")
             
             # Check similarity
             hit = _check_similarity(target, output, metric, threshold)
+            logger.debug(f"  Similarity check ({metric}): {hit} (target vs output)")
             
             # Update features based on element type
             if level == "class_names":
@@ -316,5 +351,7 @@ def extract_features(
             features[hits_key] = features[hits_key] / features[total_key]
         else:
             features[hits_key] = 0.0
+    
+    logger.info(f"Feature extraction complete. Processed {processed_count} elements.")
     
     return features

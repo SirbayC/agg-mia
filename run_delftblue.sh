@@ -18,6 +18,7 @@
 
 export MIA="trawic" # trawic / ezmia / miaadv
 export LLM="bigcode/starcoder2-3b" # bigcode/starcoder2-3b / bigcode/starcoder2-7b / bigcode/starcoder2-15b
+export SAMPLE_FRACTION=0.1
 ####################################
 
 set -euo pipefail
@@ -59,7 +60,8 @@ cd "$REPO_DIR"
 python -u -m src.main \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
-  --model="$LLM"
+  --model="$LLM" \
+  --sample_fraction="$SAMPLE_FRACTION"
 
 echo "=========================================="
 echo "Job completed at: $(date)"
