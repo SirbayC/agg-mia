@@ -7,13 +7,21 @@ masked code elements (function names, variables, comments, etc.).
 
 import logging
 import re
-from typing import Dict, Tuple
+from typing import Dict, Optional
 
 import torch
 from fuzzywuzzy import fuzz
 
 logger = logging.getLogger(__name__)
 
+# FIM tokens for StarCoder models
+FIM_TOKENS = {
+    'prefix': '<fim_prefix>',
+    'middle': '<fim_middle>',
+    'suffix': '<fim_suffix>',
+    'pad': '<fim_pad>',
+    'endoftext': '<|endoftext|>'
+}
 
 def _extract_elements(code: str) -> Dict:
     """
@@ -37,64 +45,52 @@ def _extract_elements(code: str) -> Dict:
     try:
         # Extract docstrings (content only, supports both triple-double and triple-single quotes)
         for match in re.finditer(r'("""|\'\'\')([\s\S]*?)\1', code):
-            line_num = code.count("\n", 0, match.start()) + 1
             elements["docstrings"].append({
                 "value": match.group(2),  # Only the content, not the quotes
                 "start": match.start(2),  # Position of content start
-                "end": match.end(2),      # Position of content end
-                "line": line_num
+                "end": match.end(2)       # Position of content end
             })
         
         # Extract comments (content only, after '#')
         for match in re.finditer(r"\s*#(.*)", code):
-            line_num = code.count("\n", 0, match.start()) + 1
             comment_start = match.start(1)
             comment_end = match.end(1)
             elements["comments"].append({
                 "value": code[comment_start:comment_end],
                 "start": comment_start,
-                "end": comment_end,
-                "line": line_num
+                "end": comment_end
             })
         
         # Extract function names
         for match in re.finditer(r"def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)", code):
-            line_num = code.count("\n", 0, match.start()) + 1
             elements["function_names"].append({
                 "value": match.group(1),
                 "start": match.start(1),
-                "end": match.end(1),
-                "line": line_num
+                "end": match.end(1)
             })
         
         # Extract class names
         for match in re.finditer(r"class\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\((.*?)\))?", code):
-            line_num = code.count("\n", 0, match.start()) + 1
             elements["class_names"].append({
                 "value": match.group(1),
                 "start": match.start(1),
-                "end": match.end(1),
-                "line": line_num
+                "end": match.end(1)
             })
         
         # Extract variable names (assignments)
         for match in re.finditer(r"([a-zA-Z_][a-zA-Z0-9_]*)\s*=", code):
-            line_num = code.count("\n", 0, match.start()) + 1
             elements["variable_names"].append({
                 "value": match.group(1),
                 "start": match.start(1),
-                "end": match.end(1),
-                "line": line_num
+                "end": match.end(1)
             })
         
         # Extract strings (only the content inside single/double quotes)
         for match in re.finditer(r'(["\'])(.+?)\1', code):
-            line_num = code.count("\n", 0, match.start()) + 1
             elements["strings"].append({
                 "value": match.group(2),  # Only the content, not the quotes
                 "start": match.start(2),  # Position of content start
-                "end": match.end(2),      # Position of content end
-                "line": line_num
+                "end": match.end(2)       # Position of content end
             })
     except Exception as e:
         logger.warning(f"Error extracting elements: {e}")
@@ -102,7 +98,7 @@ def _extract_elements(code: str) -> Dict:
     return elements
 
 
-def _create_infill_prompt(code: str, element: Dict, level: str, fim_tokens: Dict[str, str]) -> Tuple[str, str]:
+def _create_infill_prompt(code: str, element: Dict) -> str:
     """
     Create FIM prompt for infilling by masking the element.
     
@@ -115,18 +111,14 @@ def _create_infill_prompt(code: str, element: Dict, level: str, fim_tokens: Dict
     Args:
         code: Full code string
         element: Element dict with start, end, value
-        level: Type of element
-        fim_tokens: Dict with FIM token strings
         
     Returns:
-        Tuple of (infill_target, fim_prompt)
+        FIM prompt string
     """
     prefix = code[:element["start"]]
     suffix = code[element["end"]:]
-    
-    prompt = f"{fim_tokens['prefix']}{prefix}{fim_tokens['suffix']}{suffix}{fim_tokens['middle']}"
-    
-    return element["value"], prompt
+    prompt = f"{FIM_TOKENS['prefix']}{prefix}{FIM_TOKENS['suffix']}{suffix}{FIM_TOKENS['middle']}"
+    return prompt
 
 
 def _run_infill(
@@ -134,9 +126,8 @@ def _run_infill(
     tokenizer,
     prompt: str,
     device: str,
-    fim_tokens: Dict[str, str],
     max_tokens: int = 50
-) -> str:
+) -> Optional[str]:
     """
     Run model infilling using FIM prompt.
     
@@ -145,7 +136,6 @@ def _run_infill(
         tokenizer: The tokenizer
         prompt: Complete FIM prompt string
         device: Device to run on ('cuda' or 'cpu')
-        fim_tokens: Dict with FIM token strings (for parsing output)
         max_tokens: Maximum tokens to generate
         
     Returns:
@@ -181,9 +171,9 @@ def _run_infill(
         full_output = tokenizer.decode(outputs[0], skip_special_tokens=False)
         
         # Extract generated infill after <fim_middle>
-        if fim_tokens['middle'] in full_output:
-            start_idx = full_output.find(fim_tokens['middle']) + len(fim_tokens['middle'])
-            end_idx = full_output.find(fim_tokens['endoftext'], start_idx)
+        if FIM_TOKENS['middle'] in full_output:
+            start_idx = full_output.find(FIM_TOKENS['middle']) + len(FIM_TOKENS['middle'])
+            end_idx = full_output.find(FIM_TOKENS['endoftext'], start_idx)
             if end_idx == -1:
                 end_idx = len(full_output)
             return full_output[start_idx:end_idx].strip()
@@ -195,7 +185,7 @@ def _run_infill(
         return None
 
 
-def _check_similarity(target: str, output: str, metric: str = "exact", threshold: int = 100) -> int:
+def _check_similarity(target: str, output: Optional[str], metric: str = "exact", threshold: int = 100) -> int:
     """
     Check similarity between target and model output.
     
@@ -259,27 +249,18 @@ def extract_features(
         - docstring_hits: Proportion of docstrings reconstructed
         - docstring_nums_total: Total docstrings
     """
-    # FIM tokens for StarCoder models
-    fim_tokens = {
-        'prefix': '<fim_prefix>',
-        'middle': '<fim_middle>',
-        'suffix': '<fim_suffix>',
-        'pad': '<fim_pad>',
-        'endoftext': '<|endoftext|>'
-    }
-    
     features = {
-        "class_hits": 0,
+        "class_hits": 0.0,
         "class_nums_total": 0,
-        "function_hits": 0,
+        "function_hits": 0.0,
         "function_nums_total": 0,
-        "variable_hits": 0,
+        "variable_hits": 0.0,
         "variable_nums_total": 0,
-        "string_hits": 0,
+        "string_hits": 0.0,
         "string_nums_total": 0,
-        "comment_hits": 0,
+        "comment_hits": 0.0,
         "comment_nums_total": 0,
-        "docstring_hits": 0,
+        "docstring_hits": 0.0,
         "docstring_nums_total": 0,
     }
     
@@ -294,14 +275,15 @@ def extract_features(
         
         for element in element_list:
             # Create infill prompt
-            target, prompt = _create_infill_prompt(code, element, level, fim_tokens)
+            prompt = _create_infill_prompt(code, element)
+            target = element["value"]
             
             # Skip empty or very short elements
             if not target or len(target.strip()) < 2:
                 continue
             
             # Run model infill
-            output = _run_infill(model, tokenizer, prompt, device, fim_tokens)
+            output = _run_infill(model, tokenizer, prompt, device)
             
             # Check similarity
             hit = _check_similarity(target, output, metric, threshold)
