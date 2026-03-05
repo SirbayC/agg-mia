@@ -2,8 +2,12 @@ import logging
 from typing import List
 
 import pandas as pd
+import torch
+from sklearn.ensemble import RandomForestClassifier
+from tqdm import tqdm
 
 from src.mias.mia_interface import MIAttack
+from src.mias.trawic.feature_extractor import extract_features
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +16,11 @@ class TraWiCMIA(MIAttack):
     def __init__(self, model, tokenizer, batch_size: int = 1):
         super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size)
         self.classifier = None
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        # TraWiC thresholds
+        self.syntactic_threshold = 100  # Exact match for syntax elements
+        self.semantic_threshold = 20    # Fuzzy match threshold for semantic elements
 
     @property
     def name(self) -> str:
@@ -24,14 +33,42 @@ class TraWiCMIA(MIAttack):
         Args:
             train_df: DataFrame with columns ['text', 'blob_id', 'label']
         """
-        logger.warning(
-            "TraWiCMIA placeholder train() is active. "
-            "Wire this to the TraWiC pipeline to train a Random Forest classifier."
+        logger.info(f"Training TraWiC MIA on {len(train_df)} samples...")
+        
+        # Extract features for all training samples
+        feature_list = []
+        labels = []
+        
+        for idx, row in tqdm(train_df.iterrows(), total=len(train_df), desc="Extracting features"):
+            try:
+                features = extract_features(
+                    code=row['text'],
+                    model=self.model,
+                    tokenizer=self.tokenizer,
+                    device=self.device,
+                    syntactic_threshold=self.syntactic_threshold,
+                    semantic_threshold=self.semantic_threshold
+                )
+                feature_list.append(list(features.values()))
+                labels.append(row['label'])
+            except Exception as e:
+                logger.warning(f"Error processing sample {idx}: {e}")
+                # Add zero features for failed samples
+                feature_list.append([0.0] * 12)
+                labels.append(row['label'])
+        
+        # Train Random Forest classifier
+        logger.info("Training Random Forest classifier...")
+        self.classifier = RandomForestClassifier(
+            n_estimators=100,
+            max_depth=20,
+            max_features="sqrt",
+            criterion="gini",
+            random_state=42,
+            n_jobs=-1
         )
-        # TODO: Wire to TraWiC pipeline
-        # Extract features from texts using the model
-        # Train Random Forest classifier on features + labels
-        self.classifier = "placeholder_trained"
+        self.classifier.fit(feature_list, labels)
+        logger.info("TraWiC classifier training completed")
 
     def evaluate(self, test_df: pd.DataFrame) -> List[float]:
         """
@@ -41,13 +78,38 @@ class TraWiCMIA(MIAttack):
             test_df: DataFrame with columns ['text', 'blob_id', 'label']
 
         Returns:
-            List of membership scores
+            List of membership scores (probability of being a member)
         """
-        logger.warning(
-            "TraWiCMIA placeholder evaluate() is active; returning 0.0 scores. "
-            "Wire this to the TraWiC pipeline to use the trained classifier."
-        )
-        # TODO: Wire to TraWiC pipeline
-        # Extract features from test texts
-        # Use trained classifier to predict membership probabilities
-        return [0.0 for _ in range(len(test_df))]
+        if self.classifier is None:
+            logger.error("Classifier not trained! Call train() first.")
+            return [0.0] * len(test_df)
+        
+        logger.info(f"Evaluating TraWiC MIA on {len(test_df)} samples...")
+        
+        # Extract features for all test samples
+        feature_list = []
+        
+        for idx, row in tqdm(test_df.iterrows(), total=len(test_df), desc="Extracting features"):
+            try:
+                features = extract_features(
+                    code=row['text'],
+                    model=self.model,
+                    tokenizer=self.tokenizer,
+                    device=self.device,
+                    syntactic_threshold=self.syntactic_threshold,
+                    semantic_threshold=self.semantic_threshold
+                )
+                feature_list.append(list(features.values()))
+            except Exception as e:
+                logger.warning(f"Error processing sample {idx}: {e}")
+                feature_list.append([0.0] * 12)
+        
+        # Predict membership probabilities
+        logger.info("Predicting membership probabilities...")
+        proba = self.classifier.predict_proba(feature_list)
+        
+        # Return probability of class 1 (member)
+        scores = [p[1] for p in proba]
+        logger.info("TraWiC evaluation completed")
+        
+        return scores
