@@ -62,7 +62,7 @@ def _extract_elements(code: str) -> Dict:
             })
         
         # Extract function names
-        for match in re.finditer(r"def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)", code):
+        for match in re.finditer(r"def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([\s\S]*?)\)", code):
             elements["function_names"].append({
                 "value": match.group(1),
                 "start": match.start(1),
@@ -70,15 +70,15 @@ def _extract_elements(code: str) -> Dict:
             })
         
         # Extract class names
-        for match in re.finditer(r"class\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\((.*?)\))?", code):
+        for match in re.finditer(r"class\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\(([\s\S]*?)\))?", code):
             elements["class_names"].append({
                 "value": match.group(1),
                 "start": match.start(1),
                 "end": match.end(1)
             })
         
-        # Extract variable names (assignments)
-        for match in re.finditer(r"([a-zA-Z_][a-zA-Z0-9_]*)\s*=", code):
+        # Extract variable names (assignments, with optional type annotations)
+        for match in re.finditer(r"([a-zA-Z_][a-zA-Z0-9_]*)(?:\s*:\s*[^=]*?)?\s*=", code):
             elements["variable_names"].append({
                 "value": match.group(1),
                 "start": match.start(1),
