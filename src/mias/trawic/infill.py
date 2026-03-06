@@ -135,9 +135,19 @@ def run_infill(
         # Extract generated infill after <fim_middle>
         if FIM_MIDDLE in full_output:
             start_idx = full_output.find(FIM_MIDDLE) + len(FIM_MIDDLE)
+            
+            # Find the earliest stopping point
             end_idx = full_output.find(END_OF_TEXT, start_idx)
             if end_idx == -1:
                 end_idx = len(full_output)
+            
+            # Check for stop strings and use the earliest one
+            if stop_strings:
+                for stop_str in stop_strings:
+                    stop_idx = full_output.find(stop_str, start_idx)
+                    if stop_idx != -1 and stop_idx < end_idx:
+                        end_idx = stop_idx
+            
             return full_output[start_idx:end_idx].strip()
 
         return None
