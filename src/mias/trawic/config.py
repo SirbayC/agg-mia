@@ -15,8 +15,8 @@ class TraWiCParams:
     
     max_context: int = 3000  # Maximum context characters for infill prompts
     max_generated_tokens: int = 50  # Maximum tokens to generate during infill
-    max_total_tokens: int = 2048  # Maximum total tokens (input + output) for model
+    max_total_tokens: int = 16000  # Maximum total tokens (input + output) for model: must be <= model context window
     temperature: float = 0.2  # Sampling temperature for generation
     top_p: float = 0.95  # Nucleus sampling parameter
-    
+
     max_elements_per_type: int = 20  # Maximum number of elements to sample per type
