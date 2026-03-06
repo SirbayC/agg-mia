@@ -16,14 +16,13 @@ from fuzzywuzzy import fuzz
 
 logger = logging.getLogger(__name__)
 
-# FIM tokens for StarCoder models
-FIM_TOKENS = {
-    'prefix': '<fim_prefix>',
-    'middle': '<fim_middle>',
-    'suffix': '<fim_suffix>',
-    'pad': '<fim_pad>',
-    'endoftext': '<|endoftext|>'
-}
+FIM_PREFIX = "<fim_prefix>"
+FIM_SUFFIX = "<fim_suffix>"
+FIM_MIDDLE = "<fim_middle>"
+FIM_PAD = "<fim_pad>"
+END_OF_TEXT = "<|endoftext|>"
+FILE_SEP = "<file_sep>"
+REPO = "<repo_name>"
 
 def _extract_elements(code: str) -> Dict:
     """
@@ -122,9 +121,9 @@ def _create_infill_prompt(code: str, element: Dict) -> str:
     prefix_start = max(0, element["start"] - max_context)
     suffix_end = element["end"] + max_context
     
-    prefix = code[prefix_start:element["start"]]
-    suffix = code[element["end"]:suffix_end]
-    prompt = f"{FIM_TOKENS['prefix']}{prefix}{FIM_TOKENS['suffix']}{suffix}{FIM_TOKENS['middle']}"
+    prefix = code[:element["start"]]
+    suffix = code[element["end"]:]
+    prompt = f"{FILE_SEP}{FIM_PREFIX}{prefix}{FIM_SUFFIX}{suffix}{FIM_MIDDLE}"
     return prompt
 
 
@@ -165,9 +164,12 @@ def _run_infill(
             logger.warning(f"    Input too long: {inputs.input_ids.shape[1]} tokens + {max_tokens} max_tokens > 2048")
             return "too_many_tokens"
         
+        logger.debug(f"    File sep token: {tokenizer.convert_tokens_to_ids('<file_sep>')}")
+
         # Generate
         logger.debug(f"    Starting model generation with max_tokens={max_tokens}...")
         logger.debug(f"    Input: {prompt}\n    ======================")
+
         gen_start = time.time()
         with torch.no_grad():
             outputs = model.generate(
@@ -176,8 +178,8 @@ def _run_infill(
                 do_sample=True,
                 temperature=0.2,
                 top_p=0.95,
-                pad_token_id=tokenizer.pad_token_id,
-                eos_token_id=tokenizer.eos_token_id,
+                pad_token_id=tokenizer.convert_tokens_to_ids(FIM_PAD),
+                eos_token_id=[tokenizer.convert_tokens_to_ids(END_OF_TEXT), tokenizer.convert_tokens_to_ids(FILE_SEP)],
             )
         gen_time = time.time() - gen_start
         logger.debug(f"    Model generation took {gen_time:.3f}s, output shape: {outputs.shape}")
@@ -185,13 +187,11 @@ def _run_infill(
         # Decode
         full_output = tokenizer.decode(outputs[0], skip_special_tokens=False)
         logger.debug(f"    Output: {full_output}\n    ^^^^^^^^^^^^^^^^^^")
-
-        os._exit(1)
         
         # Extract generated infill after <fim_middle>
-        if FIM_TOKENS['middle'] in full_output:
-            start_idx = full_output.find(FIM_TOKENS['middle']) + len(FIM_TOKENS['middle'])
-            end_idx = full_output.find(FIM_TOKENS['endoftext'], start_idx)
+        if FIM_MIDDLE in full_output:
+            start_idx = full_output.find(FIM_MIDDLE) + len(FIM_MIDDLE)
+            end_idx = full_output.find(END_OF_TEXT, start_idx)
             if end_idx == -1:
                 end_idx = len(full_output)
             return full_output[start_idx:end_idx].strip()
@@ -301,6 +301,9 @@ def extract_features(
         threshold = syntactic_threshold if metric == "exact" else semantic_threshold
         
         for element in element_list:
+
+            if processed_count > 0:
+                break
             # Create infill prompt
             prompt = _create_infill_prompt(code, element)
             target = element["value"]
@@ -316,6 +319,7 @@ def extract_features(
             # Run model infill (this is typically the bottleneck)
             start_time = time.time()
             output = _run_infill(model, tokenizer, prompt, device)
+            logger.debug(f"  Got output: {output}")
             elapsed = time.time() - start_time
             logger.debug(f"  Model inference took {elapsed:.2f}s, output: '{str(output)[:50] if output else 'None'}'")
             

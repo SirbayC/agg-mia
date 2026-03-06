@@ -1,4 +1,6 @@
-from __future__ import annotations
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizerBase
+from transformers.utils import logging as hf_logging
 
 import logging
 from typing import Tuple
@@ -6,11 +8,7 @@ from typing import Tuple
 logger = logging.getLogger(__name__)
 
 
-def load_model_and_tokenizer(model_id: str) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
-    import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-    from transformers.utils import logging as hf_logging
-
+def load_model_and_tokenizer(model_id: str) -> Tuple[PreTrainedModel, PreTrainedTokenizerBase]:
     # Suppress transformers' logging and progress bars
     hf_logging.set_verbosity_error()
     hf_logging.disable_progress_bar()
