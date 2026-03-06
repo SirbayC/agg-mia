@@ -214,11 +214,18 @@ def extract_features(
             start_time = time.time()
             output = run_infill(model, tokenizer, prompt, device, params, element_type=level, element=element)
 
-            logger.info("="*30)
-            logger.info(f"  Got output: <<{output}>>")
-            logger.info(f"  Expected output: <<<{target}>>>")
-            logger.info(f"  Prompt: ==={target}===")
-            logger.info("^^^^"*30)
+            print("\n" + "="*80)
+            print(f"[{processed_count}/{total_elements}] Element Type: {level}")
+            print("-"*80)
+            print("EXPECTED:")
+            print(target)
+            print("-"*80)
+            print("GOT:")
+            print(output)
+            print("-"*80)
+            print("PROMPT:")
+            print(prompt)
+            print("="*80 + "\n")
             
             elapsed = time.time() - start_time
             logger.info(f"  Model inference took {elapsed:.2f}s")
