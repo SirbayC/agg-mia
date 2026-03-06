@@ -252,7 +252,7 @@ def extract_features(
         else:
             features[hits_key] = 0.0
     
-    logger.info(f"Feature extraction complete. Processed {processed_count} elements.")
-    logger.info(f"Final extracted features: {features}")
+    logger.debug(f"Feature extraction complete. Processed {processed_count} elements.")
+    logger.debug(f"Final extracted features: {features}")
     
     return features
