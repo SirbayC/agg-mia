@@ -18,4 +18,5 @@ class TraWiCParams:
     max_total_tokens: int = 2048  # Maximum total tokens (input + output) for model
     temperature: float = 0.2  # Sampling temperature for generation
     top_p: float = 0.95  # Nucleus sampling parameter
+    
     max_elements_per_type: int = 20  # Maximum number of elements to sample per type
