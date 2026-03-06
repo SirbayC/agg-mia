@@ -223,16 +223,13 @@ def extract_features(
             print("GOT:")
             print(output)
             print("-"*80)
-            print("PROMPT:")
-            print(prompt)
-            print("="*80 + "\n")
             
             elapsed = time.time() - start_time
-            logger.info(f"  Model inference took {elapsed:.2f}s")
-            
-            # Check similarity
             hit = _check_similarity(target, output, threshold)
-            logger.info(f"  Similarity check ({threshold}): {hit} (target vs output)")
+
+            print(f"Similarity check ({threshold}): {hit} (target vs output)")
+            print(f"Model inference took {elapsed:.2f}s")
+            print("="*80 + "\n")
             
             # Update features based on element type
             if level == "class_names":

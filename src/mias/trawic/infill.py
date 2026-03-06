@@ -135,8 +135,6 @@ def run_infill(
         # Extract generated infill after <fim_middle>
         if FIM_MIDDLE in full_output:
             start_idx = full_output.find(FIM_MIDDLE) + len(FIM_MIDDLE)
-            
- 
             end_idx = len(full_output)
             stop_strings.append(END_OF_TEXT)  # Ensure we always stop at end of text if no other stop string is found
             stop_strings.append(FILE_SEP)  # Also stop at file separator to prevent bleeding into next file content
