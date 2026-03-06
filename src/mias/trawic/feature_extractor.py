@@ -204,7 +204,7 @@ def extract_features(
             
             # Skip empty or very short elements
             if not target or len(target.strip()) < 2:
-                logger.info(f"  Skipping short {level} element: '{target[:20]}'")
+                logger.debug(f"  Skipping short {level} element: '{target[:20]}'")
                 continue
             
             processed_count += 1
