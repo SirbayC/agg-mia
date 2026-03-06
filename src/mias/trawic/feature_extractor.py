@@ -24,8 +24,6 @@ END_OF_TEXT = "<|endoftext|>"
 FILE_SEP = "<file_sep>"
 REPO = "<repo_name>"
 
-DEBUG = 1
-
 def _extract_elements(code: str) -> Dict:
     """
     Extract code elements (function names, class names, variables, etc.) using regex.
@@ -181,21 +179,15 @@ def extract_features(
     }
     
     # Extract all elements
-
-    if DEBUG:
-        logger.info(f"Extracting elements from code (length: {len(code)} chars)")
+    logger.debug(f"Extracting elements from code (length: {len(code)} chars)")
     start_time = time.time()
     elements = _extract_elements(code)
     extract_time = time.time() - start_time
-
-    if DEBUG:
-        logger.info(f"Element extraction took {extract_time:.3f}s")
+    logger.debug(f"Element extraction took {extract_time:.3f}s")
     
     # Log element counts
     total_elements = sum(len(el) for el in elements.values())
-
-    if DEBUG:
-        logger.info(f"Extracted {total_elements} elements: {', '.join(f'{k}={len(v)}' for k, v in elements.items())}")
+    logger.debug(f"Extracted {total_elements} elements: {', '.join(f'{k}={len(v)}' for k, v in elements.items())}")
     
     # Process each element type
     processed_count = 0
@@ -216,9 +208,7 @@ def extract_features(
                 continue
             
             processed_count += 1
-
-            if DEBUG:
-                logger.info(f"  [{processed_count}/{total_elements}] Processing {level}: '{target[:30]}...'")
+            logger.debug(f"  [{processed_count}/{total_elements}] Processing {level}: '{target[:30]}...'") 
             
             # Run model infill (this is typically the bottleneck)
             start_time = time.time()
@@ -226,19 +216,7 @@ def extract_features(
             elapsed = time.time() - start_time
             hit = _check_similarity(target, output, threshold)
             
-            if DEBUG: 
-                print("\n" + "="*80)
-                print(f"[{processed_count}/{total_elements}] Element Type: {level}")
-                print("-"*80)
-                print("EXPECTED:")
-                print(target)
-                print("-"*80)
-                print("GOT:")
-                print(output)
-                print("-"*80)
-                print(f"Similarity check ({threshold}): {hit} (target vs output)")
-                print(f"Model inference took {elapsed:.2f}s")
-                print("="*80 + "\n")
+            logger.debug(f"[{processed_count}/{total_elements}] Element Type: {level} | Expected: {target} | Got: {output} | Similarity: {hit} | Time: {elapsed:.2f}s")
             
             # Update features based on element type
             if level == "class_names":
@@ -269,8 +247,7 @@ def extract_features(
         else:
             features[hits_key] = 0.0
     
-    if DEBUG:
-        logger.info(f"Feature extraction complete. Processed {processed_count} elements.")
-        logger.info(f"Final extracted features: {features}")
+    logger.debug(f"Feature extraction complete. Processed {processed_count} elements.")
+    logger.debug(f"Final extracted features: {features}")
     
     return features
