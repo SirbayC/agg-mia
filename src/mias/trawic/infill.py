@@ -54,7 +54,9 @@ def run_infill(
     tokenizer,
     prompt: str,
     device: str,
-    params: TraWiCParams
+    params: TraWiCParams,
+    element_type: str = "",
+    element: Optional[Dict] = None
 ) -> Optional[str]:
     """
     Run model infilling using FIM prompt.
@@ -64,7 +66,9 @@ def run_infill(
         tokenizer: The tokenizer
         prompt: Complete FIM prompt string
         device: Device to run on ('cuda' or 'cpu')
-        params: Namespace with generation parameters (e.g. max_generated_tokens)
+        params: TraWiCParams with generation parameters
+        element_type: Type of element being infilled (e.g., "function_names", "strings")
+        element: Element dict with metadata like quote_char
 
     Returns:
         Generated infill text
@@ -81,6 +85,36 @@ def run_infill(
             logger.warning(f"    Input too long: {inputs.input_ids.shape[1]} tokens + {params.max_generated_tokens} max_tokens > {params.max_total_tokens}")
             return "too_many_tokens"
 
+        # Build custom stopping tokens based on element type
+        stop_strings = []
+        if element_type == "class_names":
+            stop_strings = [":", "("]
+        elif element_type == "function_names":
+            stop_strings = ["("]
+        elif element_type == "variable_names":
+            stop_strings = ["="]
+        elif element_type == "strings" and element and "quote_char" in element:
+            stop_strings = [element["quote_char"]]
+        elif element_type == "comments":
+            stop_strings = ["\n"]
+        elif element_type == "docstrings" and element and "quote_char" in element:
+            stop_strings = [element["quote_char"]]
+        
+        # Convert stopping strings to token IDs
+        eos_token_ids = [
+            tokenizer.convert_tokens_to_ids(END_OF_TEXT),
+            tokenizer.convert_tokens_to_ids(FILE_SEP)
+        ]
+        
+        for stop_str in stop_strings:
+            # Encode the stop string and get its token ID(s)
+            stop_tokens = tokenizer.encode(stop_str, add_special_tokens=False)
+            if stop_tokens:
+                # Add the first token ID (for single-character stops, this should be sufficient)
+                eos_token_ids.extend(stop_tokens)
+        
+        logger.info(f"    Using stopping tokens for {element_type}: {stop_strings} -> IDs: {eos_token_ids}")
+
         gen_start = time.time()
         with torch.no_grad():
             outputs = model.generate(
@@ -90,7 +124,7 @@ def run_infill(
                 temperature=params.temperature,
                 top_p=params.top_p,
                 pad_token_id=tokenizer.convert_tokens_to_ids(FIM_PAD),
-                eos_token_id=[tokenizer.convert_tokens_to_ids(END_OF_TEXT), tokenizer.convert_tokens_to_ids(FILE_SEP)],
+                eos_token_id=eos_token_ids,
             )
         gen_time = time.time() - gen_start
         logger.info(f"    Model generation took {gen_time:.3f}s, output shape: {outputs.shape}")

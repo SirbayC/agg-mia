@@ -49,7 +49,8 @@ def _extract_elements(code: str) -> Dict:
             elements["docstrings"].append({
                 "value": match.group(2),  # Only the content, not the quotes
                 "start": match.start(2),  # Position of content start
-                "end": match.end(2)       # Position of content end
+                "end": match.end(2),      # Position of content end
+                "quote_char": match.group(1)  # """ or '''
             })
         
         # Extract comments (content only, after '#')
@@ -91,7 +92,8 @@ def _extract_elements(code: str) -> Dict:
             elements["strings"].append({
                 "value": match.group(2),  # Only the content, not the quotes
                 "start": match.start(2),  # Position of content start
-                "end": match.end(2)       # Position of content end
+                "end": match.end(2),      # Position of content end
+                "quote_char": match.group(1)  # " or '
             })
     except Exception as e:
         logger.warning(f"Error extracting elements: {e}")
@@ -210,7 +212,7 @@ def extract_features(
             
             # Run model infill (this is typically the bottleneck)
             start_time = time.time()
-            output = run_infill(model, tokenizer, prompt, device, params)
+            output = run_infill(model, tokenizer, prompt, device, params, element_type=level, element=element)
 
             logger.info("="*30)
             logger.info(f"  Got output: <<{output}>>")
