@@ -113,7 +113,7 @@ def run_infill(
                 # Add the first token ID (for single-character stops, this should be sufficient)
                 eos_token_ids.extend(stop_tokens)
         
-        logger.info(f"    Using stopping tokens for {element_type}: {stop_strings} -> IDs: {eos_token_ids}")
+        logger.debug(f"    Using stopping tokens for {element_type}: {stop_strings} -> IDs: {eos_token_ids}")
 
         gen_start = time.time()
         with torch.no_grad():
@@ -127,7 +127,7 @@ def run_infill(
                 eos_token_id=eos_token_ids,
             )
         gen_time = time.time() - gen_start
-        logger.info(f"    Model generation took {gen_time:.3f}s, output shape: {outputs.shape}")
+        logger.debug(f"    Model generation took {gen_time:.3f}s, output shape: {outputs.shape}")
 
         # Decode
         full_output = tokenizer.decode(outputs[0], skip_special_tokens=False)

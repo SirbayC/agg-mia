@@ -4,7 +4,7 @@ from typing import Literal
 @dataclass
 class TraWiCParams:
     syntactic_threshold: int = 100  # Exact match for syntax elements
-    semantic_threshold: int = 20    # Fuzzy match threshold for semantic elements
+    semantic_threshold: int = 80    # Fuzzy match threshold for semantic elements
 
     n_estimators: int = 100
     max_depth: int = 20
