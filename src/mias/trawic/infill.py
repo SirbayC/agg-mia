@@ -1,9 +1,10 @@
 import logging
 import time
-from argparse import Namespace
 from typing import Dict, Optional
 
-import torch
+import torch # type: ignore
+
+from .config import TraWiCParams
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ END_OF_TEXT = "<|endoftext|>"
 FILE_SEP = "<file_sep>"
 
 
-def create_infill_prompt(code: str, element: Dict, filepath: str = "") -> str:
+def create_infill_prompt(code: str, element: Dict, params: TraWiCParams, filepath: str = "") -> str:
     """
     Create FIM prompt for infilling by masking the element.
 
@@ -32,9 +33,8 @@ def create_infill_prompt(code: str, element: Dict, filepath: str = "") -> str:
     Returns:
         FIM prompt string
     """
-    max_context = 3000
-    prefix_start = max(0, element["start"] - max_context)
-    suffix_end = element["end"] + max_context
+    prefix_start = max(0, element["start"] - params.max_context)
+    suffix_end = element["end"] + params.max_context
 
     prefix = code[prefix_start:element["start"]]
     suffix = code[element["end"]:suffix_end]
@@ -54,7 +54,7 @@ def run_infill(
     tokenizer,
     prompt: str,
     device: str,
-    params: Namespace
+    params: TraWiCParams
 ) -> Optional[str]:
     """
     Run model infilling using FIM prompt.
@@ -71,15 +71,14 @@ def run_infill(
     """
     try:
         # Tokenize
-        start = time.time()
         inputs = tokenizer(
             prompt,
             return_tensors="pt"
         ).to(device)
 
         # Check if input is too long
-        if inputs.input_ids.shape[1] + params.max_generated_tokens > 2048:
-            logger.warning(f"    Input too long: {inputs.input_ids.shape[1]} tokens + {params.max_generated_tokens} max_tokens > 2048")
+        if inputs.input_ids.shape[1] + params.max_generated_tokens > params.max_total_tokens:
+            logger.warning(f"    Input too long: {inputs.input_ids.shape[1]} tokens + {params.max_generated_tokens} max_tokens > {params.max_total_tokens}")
             return "too_many_tokens"
 
         gen_start = time.time()
@@ -88,8 +87,8 @@ def run_infill(
                 **inputs,
                 max_new_tokens=params.max_generated_tokens,
                 do_sample=True,
-                temperature=0.2,
-                top_p=0.95,
+                temperature=params.temperature,
+                top_p=params.top_p,
                 pad_token_id=tokenizer.convert_tokens_to_ids(FIM_PAD),
                 eos_token_id=[tokenizer.convert_tokens_to_ids(END_OF_TEXT), tokenizer.convert_tokens_to_ids(FILE_SEP)],
             )

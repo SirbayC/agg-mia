@@ -1,17 +1,16 @@
-import argparse
 import logging
 from typing import List
 
 import pandas as pd
-import torch
-from sklearn.ensemble import RandomForestClassifier
-from tqdm import tqdm
+import torch 
+from sklearn.ensemble import RandomForestClassifier 
+from tqdm import tqdm 
 
 from src.mias.mia_interface import MIAttack
+from src.mias.trawic.config import TraWiCParams
 from src.mias.trawic.feature_extractor import extract_features
 
 logger = logging.getLogger(__name__)
-
 
 class TraWiCMIA(MIAttack):
     def __init__(self, model, tokenizer, batch_size: int = 1):
@@ -19,17 +18,8 @@ class TraWiCMIA(MIAttack):
         self.classifier = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         
-        self.params = argparse.Namespace(
-            syntactic_threshold=100,  # Exact match for syntax elements
-            semantic_threshold=20,    # Fuzzy match threshold for semantic elements
-            n_estimators=100,
-            max_depth=20,
-            max_features="sqrt",
-            criterion="gini",
-            random_state=42,
-            n_jobs=-1
-        )
-        print(vars(self.params))
+        self.params = TraWiCParams()
+        logger.info("Initialized TraWiC MIA with parameters: \n {}".format(vars(self.params)))
 
     @property
     def name(self) -> str:

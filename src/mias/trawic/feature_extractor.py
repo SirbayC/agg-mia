@@ -11,6 +11,7 @@ import time
 from typing import Dict, Optional
 
 from fuzzywuzzy import fuzz
+from .config import TraWiCParams
 from .infill import create_infill_prompt, run_infill
 
 logger = logging.getLogger(__name__)
@@ -126,7 +127,7 @@ def extract_features(
     model,
     tokenizer,
     device: str,
-    params: Namespace
+    params: TraWiCParams
 ) -> Dict[str, float]:
     """
     Extract TraWiC features from a code sample.
