@@ -6,6 +6,7 @@ masked code elements (function names, variables, comments, etc.).
 """
 
 import logging
+import random
 import re
 import time
 from typing import Dict, Optional
@@ -197,6 +198,10 @@ def extract_features(
         else:
             threshold = params.semantic_threshold
 
+        if len(element_list) > params.max_elements_per_type:
+            element_list = random.sample(element_list, params.max_elements_per_type)
+            logger.debug(f"Sampled {params.max_elements_per_type}/{len(elements[level])} {level} elements")
+
         for element in element_list:
             # Create infill prompt
             prompt = create_infill_prompt(code, element, params)
@@ -247,7 +252,7 @@ def extract_features(
         else:
             features[hits_key] = 0.0
     
-    logger.debug(f"Feature extraction complete. Processed {processed_count} elements.")
-    logger.debug(f"Final extracted features: {features}")
+    logger.info(f"Feature extraction complete. Processed {processed_count} elements.")
+    logger.info(f"Final extracted features: {features}")
     
     return features
