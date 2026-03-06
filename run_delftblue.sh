@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=CAV-MIA-AISE-research
 #SBATCH --partition=gpu-a100
-#SBATCH --time=08:30:00
+#SBATCH --time=03:30:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --gpus-per-task=1

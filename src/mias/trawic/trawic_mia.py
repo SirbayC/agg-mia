@@ -97,7 +97,6 @@ class TraWiCMIA(MIAttack):
                     device=self.device,
                     params=self.params
                 )
-                break
                 feature_list.append(list(features.values()))
             except Exception as e:
                 logger.warning(f"Error processing sample {idx}: {e}")
