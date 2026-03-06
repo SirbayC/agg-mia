@@ -89,7 +89,6 @@ class TraWiCMIA(MIAttack):
         
         for idx, row in tqdm(test_df.iterrows(), total=len(test_df), desc="Extracting features"):
             try:
-                logger.info(f"Processing sample {idx}...")
                 features = extract_features(
                     code=row['text'],
                     model=self.model,
