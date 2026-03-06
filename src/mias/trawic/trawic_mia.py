@@ -49,7 +49,6 @@ class TraWiCMIA(MIAttack):
                     syntactic_threshold=self.syntactic_threshold,
                     semantic_threshold=self.semantic_threshold
                 )
-                break
                 feature_list.append(list(features.values()))
                 labels.append(row['label'])
             except Exception as e:

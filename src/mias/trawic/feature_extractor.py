@@ -99,7 +99,7 @@ def _extract_elements(code: str) -> Dict:
     return elements
 
 
-def _create_infill_prompt(code: str, element: Dict) -> str:
+def _create_infill_prompt(code: str, element: Dict, filepath: str = "") -> str:
     """
     Create FIM prompt for infilling by masking the element.
     
@@ -116,14 +116,20 @@ def _create_infill_prompt(code: str, element: Dict) -> str:
     Returns:
         FIM prompt string
     """
-    # Limit context to 500 chars before and after the element
-    max_context = 500
+    max_context = 3000
     prefix_start = max(0, element["start"] - max_context)
     suffix_end = element["end"] + max_context
     
-    prefix = code[:element["start"]]
-    suffix = code[element["end"]:]
-    prompt = f"{FILE_SEP}{FIM_PREFIX}{prefix}{FIM_SUFFIX}{suffix}{FIM_MIDDLE}"
+    prefix = code[prefix_start:element["start"]]
+    suffix = code[element["end"]:suffix_end]
+    if prefix_start == 0:
+        # We are at the true start of the file. 
+        # Inject <file_sep> and the filepath (if available) for maximum memorization recall!
+        path_str = f"{filepath}\n" if filepath and filepath.strip() else ""
+        prompt = f"{FILE_SEP}{FIM_PREFIX}{path_str}{prefix}{FIM_SUFFIX}{suffix}{FIM_MIDDLE}"
+    else:
+        # We are starting in the middle of a file chunk. Do NOT use <file_sep>.
+        prompt = f"{FIM_PREFIX}{prefix}{FIM_SUFFIX}{suffix}{FIM_MIDDLE}"
     return prompt
 
 
@@ -132,7 +138,7 @@ def _run_infill(
     tokenizer,
     prompt: str,
     device: str,
-    max_tokens: int = 50
+    max_tokens: int = 200
 ) -> Optional[str]:
     """
     Run model infilling using FIM prompt.
@@ -152,23 +158,13 @@ def _run_infill(
         start = time.time()
         inputs = tokenizer(
             prompt,
-            return_tensors="pt",
-            truncation=True,
-            max_length=2048 - max_tokens
+            return_tensors="pt"
         ).to(device)
-        tokenize_time = time.time() - start
-        logger.debug(f"    Tokenization took {tokenize_time:.3f}s, input_ids shape: {inputs.input_ids.shape}")
         
         # Check if input is too long
         if inputs.input_ids.shape[1] + max_tokens > 2048:
             logger.warning(f"    Input too long: {inputs.input_ids.shape[1]} tokens + {max_tokens} max_tokens > 2048")
             return "too_many_tokens"
-        
-        logger.debug(f"    File sep token: {tokenizer.convert_tokens_to_ids('<file_sep>')}")
-
-        # Generate
-        logger.debug(f"    Starting model generation with max_tokens={max_tokens}...")
-        logger.debug(f"    Input: {prompt}\n    ======================")
 
         gen_start = time.time()
         with torch.no_grad():
@@ -182,11 +178,10 @@ def _run_infill(
                 eos_token_id=[tokenizer.convert_tokens_to_ids(END_OF_TEXT), tokenizer.convert_tokens_to_ids(FILE_SEP)],
             )
         gen_time = time.time() - gen_start
-        logger.debug(f"    Model generation took {gen_time:.3f}s, output shape: {outputs.shape}")
+        logger.info(f"    Model generation took {gen_time:.3f}s, output shape: {outputs.shape}")
 
         # Decode
         full_output = tokenizer.decode(outputs[0], skip_special_tokens=False)
-        logger.debug(f"    Output: {full_output}\n    ^^^^^^^^^^^^^^^^^^")
         
         # Extract generated infill after <fim_middle>
         if FIM_MIDDLE in full_output:
@@ -283,11 +278,11 @@ def extract_features(
     }
     
     # Extract all elements
-    logger.debug(f"Extracting elements from code (length: {len(code)} chars)")
+    logger.info(f"Extracting elements from code (length: {len(code)} chars)")
     start_time = time.time()
     elements = _extract_elements(code)
     extract_time = time.time() - start_time
-    logger.debug(f"Element extraction took {extract_time:.3f}s")
+    logger.info(f"Element extraction took {extract_time:.3f}s")
     
     # Log element counts
     total_elements = sum(len(el) for el in elements.values())
@@ -301,31 +296,34 @@ def extract_features(
         threshold = syntactic_threshold if metric == "exact" else semantic_threshold
         
         for element in element_list:
-
-            if processed_count > 0:
-                break
             # Create infill prompt
             prompt = _create_infill_prompt(code, element)
             target = element["value"]
             
             # Skip empty or very short elements
             if not target or len(target.strip()) < 2:
-                logger.debug(f"  Skipping short {level} element: '{target[:20]}'")
+                logger.info(f"  Skipping short {level} element: '{target[:20]}'")
                 continue
             
             processed_count += 1
-            logger.debug(f"  [{processed_count}/{total_elements}] Processing {level}: '{target[:30]}...'")
+            logger.info(f"  [{processed_count}/{total_elements}] Processing {level}: '{target[:30]}...'")
             
             # Run model infill (this is typically the bottleneck)
             start_time = time.time()
             output = _run_infill(model, tokenizer, prompt, device)
-            logger.debug(f"  Got output: {output}")
+
+            logger.info("="*30)
+            logger.info(f"  Got output: <<{output}>>")
+            logger.info(f"  Expected output: <<<{target}>>>")
+            logger.info(f"  Prompt: ==={target}===")
+            logger.info("^^^^"*30)
+            
             elapsed = time.time() - start_time
-            logger.debug(f"  Model inference took {elapsed:.2f}s, output: '{str(output)[:50] if output else 'None'}'")
+            logger.info(f"  Model inference took {elapsed:.2f}s")
             
             # Check similarity
             hit = _check_similarity(target, output, metric, threshold)
-            logger.debug(f"  Similarity check ({metric}): {hit} (target vs output)")
+            logger.info(f"  Similarity check ({metric}): {hit} (target vs output)")
             
             # Update features based on element type
             if level == "class_names":
