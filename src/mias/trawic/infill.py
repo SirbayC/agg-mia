@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import torch # type: ignore
 
@@ -14,45 +14,6 @@ FIM_MIDDLE = "<fim_middle>"
 FIM_PAD = "<fim_pad>"
 END_OF_TEXT = "<|endoftext|>"
 FILE_SEP = "<file_sep>"
-
-
-def _get_stop_strings_for_type(element_type: str) -> List[str]:
-    """Get stop strings for a given element type. Uses both quote chars for strings/docstrings."""
-    if element_type == "class_names":
-        return [":", "("]
-    elif element_type == "function_names":
-        return ["("]
-    elif element_type == "variable_names":
-        return ["="]
-    elif element_type in ("strings", "docstrings"):
-        return ['"', "'"]  # Cover both quote styles across the batch
-    elif element_type == "comments":
-        return ["\n"]
-    return []
-
-
-def _build_eos_token_ids(stop_strings: List[str], tokenizer) -> List[int]:
-    eos_ids = [
-        tokenizer.convert_tokens_to_ids(END_OF_TEXT),
-        tokenizer.convert_tokens_to_ids(FILE_SEP),
-    ]
-    for stop_str in stop_strings:
-        stop_tokens = tokenizer.encode(stop_str, add_special_tokens=False)
-        if stop_tokens:
-            eos_ids.extend(stop_tokens)
-    return list(set(eos_ids))
-
-
-def _extract_infill_from_output(full_output: str, stop_strings: List[str]) -> Optional[str]:
-    if FIM_MIDDLE not in full_output:
-        return None
-    start_idx = full_output.find(FIM_MIDDLE) + len(FIM_MIDDLE)
-    end_idx = len(full_output)
-    for stop_str in stop_strings + [END_OF_TEXT, FILE_SEP]:
-        idx = full_output.find(stop_str, start_idx)
-        if idx != -1 and idx < end_idx:
-            end_idx = idx
-    return full_output[start_idx:end_idx].strip()
 
 
 def create_infill_prompt(code: str, element: Dict, params: TraWiCParams, filepath: str = "") -> str:
@@ -189,112 +150,3 @@ def run_infill(
     except Exception as e:
         logger.warning(f"    Error during infill: {e}")
         return None
-
-
-def run_infill_batch(
-    prompts: List[str],
-    element_types: List[str],
-    model,
-    tokenizer,
-    device: str,
-    params: TraWiCParams,
-) -> List[Optional[str]]:
-    """
-    Run batched model infilling for a list of prompts.
-
-    Groups prompts by element_type so each batch shares consistent stop tokens,
-    then runs a single model.generate() per group. This reduces the number of
-    GPU inference calls from N (one per element) to K (one per element type).
-
-    Args:
-        prompts: List of FIM prompt strings
-        element_types: Corresponding element type for each prompt
-        model: The language model
-        tokenizer: The tokenizer
-        device: Device to run on ('cuda' or 'cpu')
-        params: TraWiCParams with generation parameters
-
-    Returns:
-        List of infill results (same order as input prompts)
-    """
-    if not prompts:
-        return []
-
-    results: List[Optional[str]] = [None] * len(prompts)
-
-    # Group prompt indices by element_type to share stop tokens within each batch
-    type_groups: Dict[str, List[int]] = {}
-    for i, et in enumerate(element_types):
-        type_groups.setdefault(et, []).append(i)
-
-    orig_padding_side = tokenizer.padding_side
-    tokenizer.padding_side = "left"
-    pad_token_id = tokenizer.convert_tokens_to_ids(FIM_PAD)
-    if tokenizer.pad_token_id is None:
-        tokenizer.pad_token_id = pad_token_id
-
-    try:
-        for et, indices in type_groups.items():
-            group_prompts = [prompts[i] for i in indices]
-            stop_strings = _get_stop_strings_for_type(et)
-            eos_token_ids = _build_eos_token_ids(stop_strings, tokenizer)
-
-            # Tokenize the full group with left-padding
-            inputs = tokenizer(
-                group_prompts,
-                return_tensors="pt",
-                padding=True,
-                truncation=False,
-            ).to(device)
-
-            # Check per-sequence real token lengths via attention_mask
-            real_lens = inputs.attention_mask.sum(dim=1)
-            too_long = (real_lens + params.max_generated_tokens) > params.max_total_tokens
-
-            valid_pairs = []  # (local_index, global_index) for prompts that fit
-            for local_i, global_i in enumerate(indices):
-                if too_long[local_i]:
-                    results[global_i] = "too_many_tokens"
-                    logger.warning(
-                        f"Input too long: {real_lens[local_i]} tokens + "
-                        f"{params.max_generated_tokens} max_tokens > {params.max_total_tokens}"
-                    )
-                else:
-                    valid_pairs.append((local_i, global_i))
-
-            if not valid_pairs:
-                continue
-
-            # Re-tokenize only valid prompts if some were filtered
-            if len(valid_pairs) < len(indices):
-                valid_prompts = [group_prompts[li] for li, _ in valid_pairs]
-                inputs = tokenizer(
-                    valid_prompts,
-                    return_tensors="pt",
-                    padding=True,
-                    truncation=False,
-                ).to(device)
-
-            gen_start = time.time()
-            with torch.no_grad():
-                outputs = model.generate(
-                    **inputs,
-                    max_new_tokens=params.max_generated_tokens,
-                    do_sample=True,
-                    temperature=params.temperature,
-                    top_p=params.top_p,
-                    pad_token_id=pad_token_id,
-                    eos_token_id=eos_token_ids,
-                )
-            logger.debug(
-                f"Batch {et} ({len(valid_pairs)} elements) took {time.time() - gen_start:.2f}s"
-            )
-
-            for out_i, (_, global_i) in enumerate(valid_pairs):
-                full_output = tokenizer.decode(outputs[out_i], skip_special_tokens=False)
-                results[global_i] = _extract_infill_from_output(full_output, stop_strings)
-
-    finally:
-        tokenizer.padding_side = orig_padding_side
-
-    return results

@@ -13,7 +13,7 @@ from typing import Dict, Optional
 
 from fuzzywuzzy import fuzz
 from .config import TraWiCParams
-from .infill import create_infill_prompt, run_infill_batch
+from .infill import create_infill_prompt, run_infill
 
 logger = logging.getLogger(__name__)
 
@@ -190,60 +190,59 @@ def extract_features(
     total_elements = sum(len(el) for el in elements.values())
     logger.debug(f"Extracted {total_elements} elements: {', '.join(f'{k}={len(v)}' for k, v in elements.items())}")
     
-    # Collect all prompts to run as a batch (one model.generate() call per element type)
-    batch_prompts = []
-    batch_types = []
-    batch_targets = []
-
+    # Process each element type
+    processed_count = 0
     for level, element_list in elements.items():
+        if level in ["function_names", "class_names", "variable_names"]:
+            threshold = params.syntactic_threshold
+        else:
+            threshold = params.semantic_threshold
+
         if len(element_list) > params.max_elements_per_type:
             element_list = random.sample(element_list, params.max_elements_per_type)
             logger.debug(f"Sampled {params.max_elements_per_type}/{len(elements[level])} {level} elements")
 
         for element in element_list:
+            # Create infill prompt
+            prompt = create_infill_prompt(code, element, params)
             target = element["value"]
+            
+            # Skip empty or very short elements
             if not target or len(target.strip()) < 2:
                 logger.debug(f"  Skipping short {level} element: '{target[:20]}'")
                 continue
-            batch_prompts.append(create_infill_prompt(code, element, params))
-            batch_types.append(level)
-            batch_targets.append(target)
-
-    # Run batch inference — one model.generate() per element type
-    logger.debug(f"Running batch inference on {len(batch_prompts)} elements...")
-    infer_start = time.time()
-    outputs = run_infill_batch(batch_prompts, batch_types, model, tokenizer, device, params)
-    logger.debug(f"Batch inference took {time.time() - infer_start:.2f}s")
-
-    # Process results
-    for level, target, output in zip(batch_types, batch_targets, outputs):
-        threshold = (
-            params.syntactic_threshold
-            if level in ["function_names", "class_names", "variable_names"]
-            else params.semantic_threshold
-        )
-        hit = _check_similarity(target, output, threshold)
-        logger.debug(f"  {level}: '{target[:30]}' -> '{str(output)[:30]}' | hit={hit}")
-
-        if level == "class_names":
-            features["class_hits"] += hit
-            features["class_nums_total"] += 1
-        elif level == "function_names":
-            features["function_hits"] += hit
-            features["function_nums_total"] += 1
-        elif level == "variable_names":
-            features["variable_hits"] += hit
-            features["variable_nums_total"] += 1
-        elif level == "strings":
-            features["string_hits"] += hit
-            features["string_nums_total"] += 1
-        elif level == "comments":
-            features["comment_hits"] += hit
-            features["comment_nums_total"] += 1
-        elif level == "docstrings":
-            features["docstring_hits"] += hit
-            features["docstring_nums_total"] += 1
-
+            
+            processed_count += 1
+            logger.debug(f"  [{processed_count}/{total_elements}] Processing {level}: '{target[:30]}...'") 
+            
+            # Run model infill (this is typically the bottleneck)
+            start_time = time.time()
+            output = run_infill(model, tokenizer, prompt, device, params, element_type=level, element=element)
+            elapsed = time.time() - start_time
+            hit = _check_similarity(target, output, threshold)
+            
+            logger.debug(f"[{processed_count}/{total_elements}] Element Type: {level} | Expected: {target} | Got: {output} | Similarity: {hit} | Time: {elapsed:.2f}s")
+            
+            # Update features based on element type
+            if level == "class_names":
+                features["class_hits"] += hit
+                features["class_nums_total"] += 1
+            elif level == "function_names":
+                features["function_hits"] += hit
+                features["function_nums_total"] += 1
+            elif level == "variable_names":
+                features["variable_hits"] += hit
+                features["variable_nums_total"] += 1
+            elif level == "strings":
+                features["string_hits"] += hit
+                features["string_nums_total"] += 1
+            elif level == "comments":
+                features["comment_hits"] += hit
+                features["comment_nums_total"] += 1
+            elif level == "docstrings":
+                features["docstring_hits"] += hit
+                features["docstring_nums_total"] += 1
+    
     # Normalize hits by totals
     for key in ["class", "function", "variable", "string", "comment", "docstring"]:
         hits_key = f"{key}_hits"
@@ -253,7 +252,7 @@ def extract_features(
         else:
             features[hits_key] = 0.0
     
-    logger.debug(f"Feature extraction complete. Processed {len(batch_prompts)} elements.")
+    logger.debug(f"Feature extraction complete. Processed {processed_count} elements.")
     logger.debug(f"Final extracted features: {features}")
     
     return features
