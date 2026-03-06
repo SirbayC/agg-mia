@@ -1,3 +1,4 @@
+import argparse
 import logging
 from typing import List
 
@@ -18,9 +19,17 @@ class TraWiCMIA(MIAttack):
         self.classifier = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         
-        # TraWiC thresholds
-        self.syntactic_threshold = 100  # Exact match for syntax elements
-        self.semantic_threshold = 20    # Fuzzy match threshold for semantic elements
+        self.params = argparse.Namespace(
+            syntactic_threshold=100,  # Exact match for syntax elements
+            semantic_threshold=20,    # Fuzzy match threshold for semantic elements
+            n_estimators=100,
+            max_depth=20,
+            max_features="sqrt",
+            criterion="gini",
+            random_state=42,
+            n_jobs=-1
+        )
+        print(vars(self.params))
 
     @property
     def name(self) -> str:
@@ -46,8 +55,7 @@ class TraWiCMIA(MIAttack):
                     model=self.model,
                     tokenizer=self.tokenizer,
                     device=self.device,
-                    syntactic_threshold=self.syntactic_threshold,
-                    semantic_threshold=self.semantic_threshold
+                    params=self.params
                 )
                 feature_list.append(list(features.values()))
                 labels.append(row['label'])
@@ -60,12 +68,12 @@ class TraWiCMIA(MIAttack):
         # Train Random Forest classifier
         logger.info("Training Random Forest classifier...")
         self.classifier = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=20,
-            max_features="sqrt",
-            criterion="gini",
-            random_state=42,
-            n_jobs=-1
+            n_estimators=self.params.n_estimators,
+            max_depth=self.params.max_depth,
+            max_features=self.params.max_features,
+            criterion=self.params.criterion,
+            random_state=self.params.random_state,
+            n_jobs=self.params.n_jobs
         )
         self.classifier.fit(feature_list, labels)
         logger.info("TraWiC classifier training completed")
@@ -91,13 +99,13 @@ class TraWiCMIA(MIAttack):
         
         for idx, row in tqdm(test_df.iterrows(), total=len(test_df), desc="Extracting features"):
             try:
+                logger.info(f"Processing sample {idx}...")
                 features = extract_features(
                     code=row['text'],
                     model=self.model,
                     tokenizer=self.tokenizer,
                     device=self.device,
-                    syntactic_threshold=self.syntactic_threshold,
-                    semantic_threshold=self.semantic_threshold
+                    params=self.params
                 )
                 break
                 feature_list.append(list(features.values()))
