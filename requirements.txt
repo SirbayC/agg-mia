@@ -1,5 +1,6 @@
 datasets
 huggingface_hub[cli]
+numpy
 requests
 scikit-learn
 transformers

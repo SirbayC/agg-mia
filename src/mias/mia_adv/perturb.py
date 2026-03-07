@@ -1,6 +1,3 @@
-import argparse
-import json
-import os
 import re
 import random
 import secrets
@@ -219,91 +216,9 @@ PERTURBATIONS = {
     'unused_var_loop': insert_unused_var_loop
 }
 
-VARIANT_GROUPS = {
-    'false_if': ['false_if_fixed', 'false_if_random'],
-    'unused_var': ['unused_var_existing', 'unused_var_random'],
-    'rename': ['rename_var', 'rename_method'],
-    'print': ['print_enter', 'print_variable'],
-    'false_loop': ['false_loop_for', 'false_loop_while'],
-    'unused_var_loop': ['unused_var_loop']
-}
-
-
-def apply_perturbation(code, variant=None):
-    """Apply perturbations according to the specified variant; If not specified, randomly select."""
-    if variant is None:
-        variant = random.choice(list(PERTURBATIONS.keys()))
-    if variant not in PERTURBATIONS:
-        raise ValueError(f"Unknown variant {variant}")
-    return PERTURBATIONS[variant](code)
-
-
 def traverse_all_variants(code):
     """Traverse all specific variables and return a dictionary:{variant_name: perturbed_code}."""
     results = {}
     for name, func in PERTURBATIONS.items():
         results[name] = func(code)
     return results
-
-
-def process_file(input_file, output_file):
-    """
-    Process JSON files and generate num_perturbations perturbation versions for each sample.
-    """
-    with open(input_file, "r", encoding="utf-8") as infile, open(output_file, "w", encoding="utf-8") as outfile:
-        for line in infile:
-            line = json.loads(line.strip())  # Analyze the JSON data for each line
-            
-            if line:
-                original_input = line['input']
-                gt = line['gt']  #  (ground truth)
-
-                # Build a new sample format
-                sample = {
-                    "id": str(line["id"]),
-                    "input": original_input,
-                    "gt": gt
-                }
-                # Write a file with one JSON object per line
-                outfile.write(json.dumps(sample, ensure_ascii=False) + "\n")
-
-                # Generate a specified number of perturbation versions
-                perturbed_code = traverse_all_variants(original_input.replace('\\n', '\n').replace('<s> ', '', 1)).values()
-                for perturbed_input in perturbed_code:
-                    sample = {
-                        "id": str(line["id"]),
-                        "input": '<s> ' + perturbed_input.replace('\n', '\\n'),
-                        "gt": gt
-                    }
-                    outfile.write(json.dumps(sample, ensure_ascii=False) + "\n")
-
-
-
-def main():
-    parser = argparse.ArgumentParser()
-
-    ## Required parameters
-    parser.add_argument("--input_dir",
-                        default=None,
-                        type=str,
-                        required=True,
-                        help="The input directory path.")
-    parser.add_argument("--input_file",
-                        default=None,
-                        type=str,
-                        required=True,
-                        help="The json input file contains input code and ground truth for each line.")
-    parser.add_argument("--output_file",
-                        default=None,
-                        type=str,
-                        required=True,
-                        help="The json output file contains perturbed input code and ground truth for each line.")
-
-
-    args = parser.parse_args()
-    process_file(os.path.join(args.input_dir, args.input_file), os.path.join(args.input_dir, args.output_file))
-    print(f"Processing completed! The result has been saved to {args.output_file}")
-
-
-if __name__ == '__main__':
-    main()
