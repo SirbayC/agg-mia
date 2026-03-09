@@ -52,6 +52,25 @@ class BoWMIA(MIAttack):
         ])
         self._clf.fit(train_df["text"].tolist(), train_df["label"].tolist())
         logger.info("BoWMIA: training complete.")
+        self.log_top_features()
+
+    def log_top_features(self, n: int = 20) -> None:
+        """Log the top n ngrams most predictive of seen (member) and unseen (non-member)."""
+        if self._clf is None:
+            raise RuntimeError("BoWMIA.train() must be called first.")
+        feature_names = self._clf.named_steps["tfidf"].get_feature_names_out()
+        coefs = self._clf.named_steps["lr"].coef_[0]
+
+        top_seen_idx = coefs.argsort()[-n:][::-1]
+        top_unseen_idx = coefs.argsort()[:n]
+
+        logger.info("Top %d features predicting SEEN (member):", n)
+        for i in top_seen_idx:
+            logger.info("  %+.4f  %s", coefs[i], feature_names[i])
+
+        logger.info("Top %d features predicting UNSEEN (non-member):", n)
+        for i in top_unseen_idx:
+            logger.info("  %+.4f  %s", coefs[i], feature_names[i])
 
     def evaluate(self, test_df: pd.DataFrame) -> List[float]:
         """
