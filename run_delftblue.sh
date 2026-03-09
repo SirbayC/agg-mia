@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=CAV-MIA-AISE-research
 #SBATCH --partition=gpu-a100
-#SBATCH --time=01:30:00
+#SBATCH --time=02:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --gpus-per-task=1
@@ -18,7 +18,7 @@
 
 export MIA="miaadv" # trawic / ezmia / miaadv
 export LLM="bigcode/starcoder2-3b" # bigcode/starcoder2-3b / bigcode/starcoder2-7b / bigcode/starcoder2-15b
-export SAMPLE_FRACTION=0.1
+export SAMPLE_FRACTION=1
 ####################################
 
 set -euo pipefail
