@@ -90,9 +90,9 @@ class AdvMIA(MIAttack):
         
                 eos_token_id=break_ids,
                 early_stopping=True,
-                do_sample=True,      
-                top_k=50,            
-                temperature=0.8      
+                do_sample=True,
+                top_k=self.params.top_k,
+                temperature=self.params.temperature,
             )
 
         input_len = inputs['input_ids'].shape[1]
