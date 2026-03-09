@@ -13,7 +13,7 @@ from src.mias.trawic.feature_extractor import extract_features
 logger = logging.getLogger(__name__)
 
 class TraWiCMIA(MIAttack):
-    def __init__(self, model, tokenizer, batch_size: int = 1, seed: int = 42):
+    def __init__(self, model, tokenizer, batch_size: int, seed: int):
         super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size, seed=seed)
         self.classifier = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 _PERTURBATION_KEYS = list(PERTURBATIONS.keys())
 
 class AdvMIA(MIAttack):
-    def __init__(self, model, tokenizer, batch_size: int = 1, seed: int = 42):
+    def __init__(self, model, tokenizer, batch_size: int, seed: int):
         super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size, seed=seed)
         self.params = MIAAdvParams()
         self.mlp_classifier = None
