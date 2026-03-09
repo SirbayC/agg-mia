@@ -13,7 +13,7 @@ from tqdm import tqdm
 from src.mias.mia_interface import MIAttack
 from src.mias.mia_adv.config import MIAAdvParams
 from src.mias.mia_adv.perturb import traverse_all_variants, PERTURBATIONS
-from src.mias.mia_adv.classifier import compute_features, CustomMLP, train_mlp
+from src.mias.mia_adv.classifier import init_feature_models, compute_features, CustomMLP, train_mlp
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,9 @@ class AdvMIA(MIAttack):
         self.mlp_classifier = None
         self.scaler = None
         logger.info("MIAAdv parameters:\n%s", "\n".join(f"  {k}: {v}" for k, v in vars(self.params).items()))
+        logger.info("MIAAdv: loading CodeBERT and CodeGPT feature models...")
+        init_feature_models(target_device=model.device if hasattr(model, 'device') else None)
+        logger.info("MIAAdv: feature models ready.")
 
     @property
     def name(self) -> str:
@@ -101,13 +104,15 @@ class AdvMIA(MIAttack):
         Returns a copy of df with added output_text_0..output_text_11 columns.
         """
         output_df = df.copy()
-        total = len(df)
-        for col_idx in range(12):
-            col = f'text_{col_idx}'
-            outputs = []
-            for text in tqdm(df[col], desc=f"Generating variant {col_idx}", total=total):
-                outputs.append(self._generate_single(text))
-            output_df[f'output_text_{col_idx}'] = outputs
+        for idx, row in tqdm(df.iterrows(), desc="Generating outputs", total=len(df)):
+            for col_idx in range(12):
+                text = row[f'text_{col_idx}']
+                output = self._generate_single(text)
+                output_df.at[idx, f'output_text_{col_idx}'] = output
+                logger.debug(
+                    "Sample %s | variant %d\n  INPUT:  %s\n  OUTPUT: %s",
+                    idx, col_idx, text, output,
+                )
         return output_df
 
     def _extract_features(self, output_df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:

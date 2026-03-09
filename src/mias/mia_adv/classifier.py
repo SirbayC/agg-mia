@@ -6,17 +6,29 @@ from torch.utils.data import DataLoader, TensorDataset
 from torch.optim.lr_scheduler import StepLR
 from transformers import AutoModel, AutoTokenizer, GPT2LMHeadModel, GPT2Tokenizer
 
-# Initialize the pre-trained embedding model (e.g., CodeBERT)
-MODEL_NAME = "microsoft/codebert-base"
+# Lazy-loaded feature models — populated by init_feature_models() called from AdvMIA.__init__.
+# Nothing is loaded at import time so other MIA methods don't consume VRAM unnecessarily.
+_CODEBERT_NAME = "microsoft/codebert-base"
+_CODEGPT_NAME = "microsoft/CodeGPT-small-py"
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = None
+model = None
+tokenizer = None
+codegpt_tokenizer = None
+codegpt_model = None
 
-model = AutoModel.from_pretrained(MODEL_NAME).to(device)
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
-codegpt_tokenizer = GPT2Tokenizer.from_pretrained("microsoft/CodeGPT-small-py")
-codegpt_model = GPT2LMHeadModel.from_pretrained("microsoft/CodeGPT-small-py").to(device)
-codegpt_model.eval()
+def init_feature_models(target_device: torch.device = None) -> None:
+    """Load CodeBERT and CodeGPT into memory. Safe to call multiple times."""
+    global device, model, tokenizer, codegpt_tokenizer, codegpt_model
+    if model is not None:
+        return  # already initialised
+    device = target_device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = AutoModel.from_pretrained(_CODEBERT_NAME).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(_CODEBERT_NAME)
+    codegpt_tokenizer = GPT2Tokenizer.from_pretrained(_CODEGPT_NAME)
+    codegpt_model = GPT2LMHeadModel.from_pretrained(_CODEGPT_NAME).to(device)
+    codegpt_model.eval()
 
 
 class CustomMLP(nn.Module):
@@ -106,6 +118,8 @@ def evaluate_mlp(model: nn.Module,
 
 
 def extract_embeddings(text):
+    if model is None or tokenizer is None:
+        raise RuntimeError("Feature models not initialised — call init_feature_models() first.")
     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512).to(device)
     with torch.no_grad():
         outputs = model(**inputs).last_hidden_state.mean(dim=1)  # calculate with GPU
