@@ -16,8 +16,14 @@ def load_model_and_tokenizer(model_id: str) -> Tuple[PreTrainedModel, PreTrained
     logger.info("Loading tokenizer: %s", model_id)
     tokenizer = AutoTokenizer.from_pretrained(model_id)
 
+    print("Before:")
+    print(tokenizer.special_tokens_map)
+
     if tokenizer.pad_token is None and tokenizer.eos_token is not None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    print("After:")
+    print(tokenizer.special_tokens_map)
 
     logger.info("Loading model: %s", model_id)
     
