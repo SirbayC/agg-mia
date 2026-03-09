@@ -56,13 +56,25 @@ class AdvMIA(MIAttack):
             max_length=self.params.max_input_tokens,
         )
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+
+        newline_token_id = self.tokenizer.encode('\n', add_special_tokens=False)[-1]
+        break_ids = [self.tokenizer.eos_token_id, newline_token_id]
+        if self.tokenizer.sep_token_id is not None:
+            break_ids.append(self.tokenizer.sep_token_id)
+
         with torch.no_grad():
             output_ids = self.model.generate(
                 **inputs,
                 max_new_tokens=self.params.max_new_tokens,
-                do_sample=False,
                 pad_token_id=self.tokenizer.pad_token_id,
+        
+                eos_token_id=break_ids,
+                early_stopping=True,
+                do_sample=True,      
+                top_k=50,            
+                temperature=0.8      
             )
+
         input_len = inputs['input_ids'].shape[1]
         return self.tokenizer.decode(output_ids[0][input_len:], skip_special_tokens=True)
 
