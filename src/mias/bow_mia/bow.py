@@ -22,6 +22,8 @@ class BoWMIA(MIAttack):
     distribution shift that would confound other MIA results.
     """
 
+    requires_model: bool = False
+
     def __init__(self, model, tokenizer, batch_size: int, seed: int):
         super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size, seed=seed)
         self.params = BoWMIAParams()
@@ -54,7 +56,7 @@ class BoWMIA(MIAttack):
         logger.info("BoWMIA: training complete.")
         self.log_top_features()
 
-    def log_top_features(self, n: int = 20) -> None:
+    def log_top_features(self, n: int = 40) -> None:
         """Log the top n ngrams most predictive of seen (member) and unseen (non-member)."""
         if self._clf is None:
             raise RuntimeError("BoWMIA.train() must be called first.")

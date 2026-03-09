@@ -7,6 +7,8 @@ import pandas as pd
 class MIAttack(ABC):
     """Abstract base class for Membership Inference Attacks."""
 
+    requires_model: bool = True  # Set to False for attacks that need no LLM
+
     def __init__(self, model, tokenizer, batch_size: int, seed: int):
         self.model = model
         self.tokenizer = tokenizer

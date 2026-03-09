@@ -161,20 +161,26 @@ def main():
         traceback.print_exc()
         return 1
 
-    # Load target model once and pass it into MIA
-    logger.info("Loading target model and tokenizer...")
-    try:
-        model, tokenizer = load_model_and_tokenizer(args.model)
-        logger.info("Model and tokenizer loaded successfully")
-    except Exception as e:
-        logger.error(f"Failed to load model/tokenizer: {e}")
-        traceback.print_exc()
-        return 1
+    # Load target model once and pass it into MIA (skipped for model-free attacks)
+    logger.info(f"Loading {args.mia} MIA class to check model requirement...")
+    MIAClass = load_mia_class(args.mia)
 
-    # Load MIA class
-    logger.info(f"Loading {args.mia} MIA...")
+    model, tokenizer = None, None
+    if MIAClass.requires_model:
+        logger.info("Loading target model and tokenizer...")
+        try:
+            model, tokenizer = load_model_and_tokenizer(args.model)
+            logger.info("Model and tokenizer loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load model/tokenizer: {e}")
+            traceback.print_exc()
+            return 1
+    else:
+        logger.info("MIA does not require a model — skipping model load.")
+
+    # Instantiate MIA
+    logger.info(f"Instantiating {args.mia} MIA...")
     try:
-        MIAClass = load_mia_class(args.mia)
         mia = MIAClass(
             model=model,
             tokenizer=tokenizer,
