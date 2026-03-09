@@ -1,4 +1,5 @@
 import logging
+import random
 from typing import List, Tuple
 
 import numpy as np
@@ -37,15 +38,30 @@ class AdvMIA(MIAttack):
 
     def _apply_perturbations(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Return a copy of df with columns text_0 (original) and text_1..text_11
-        (one column per perturbation variant).
+        Split each text into a prefix (~40-60% of chars) and a ground truth
+        continuation. Perturbations are applied only to the prefix, so the
+        model is prompted with the prefix and its output is compared against
+        the ground truth continuation.
+
+        Adds columns: prefix, gt, text_0 (= prefix), text_1..text_11.
         """
         df = df.copy()
-        df['text_0'] = df['text']
+
+        prefixes, gts = [], []
+        for text in df['text']:
+            split_idx = int(len(text) * random.uniform(0.4, 0.6))
+            prefixes.append(text[:split_idx])
+            gts.append(text[split_idx:])
+
+        df['prefix'] = prefixes
+        df['gt'] = gts
+        df['text_0'] = df['prefix']
+
         for idx, row in df.iterrows():
-            variants = traverse_all_variants(row['text'])
+            variants = traverse_all_variants(row['prefix'])
             for j, key in enumerate(_PERTURBATION_KEYS, start=1):
                 df.at[idx, f'text_{j}'] = variants[key]
+
         return df
 
     def _generate_single(self, text: str) -> str:
@@ -97,14 +113,14 @@ class AdvMIA(MIAttack):
     def _extract_features(self, output_df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
         """
         Compute a feature vector per row via compute_features().
-          - ground truth  : original text (text column)
-          - base output   : output_text_0  (model output for unperturbed input)
+          - ground truth  : gt column (the held-out continuation after the prefix)
+          - base output   : output_text_0  (model output for unperturbed prefix)
           - perturbed outs: output_text_1..output_text_11
         """
         features = []
         labels = []
         for _, row in output_df.iterrows():
-            gt = row['text']
+            gt = row['gt']
             y_pred = row['output_text_0']
             y_preds_perturbed = [row[f'output_text_{i}'] for i in range(1, 12)]
             features.append(compute_features(gt, y_pred, y_preds_perturbed))
