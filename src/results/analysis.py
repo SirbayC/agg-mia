@@ -120,7 +120,7 @@ def compute_and_save_metrics(
     logger.info(f"Metrics saved to {metrics_file}")
 
     # Log metrics
-    logger.info(f"Binary Classification Metrics (threshold=0.5):")
+    logger.info(f"Binary Classification Metrics:")
     logger.info(f"  Accuracy:  {accuracy:.4f}")
     logger.info(f"  Precision: {precision:.4f}")
     logger.info(f"  Recall:    {recall:.4f}")
