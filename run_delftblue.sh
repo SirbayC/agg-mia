@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=CAV-MIA-AISE-research
-#SBATCH --partition=gpu-a100
-#SBATCH --time=03:55:00
+#SBATCH --partition=gpu-a100-small
+#SBATCH --time=01:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --gpus-per-task=1
@@ -16,9 +16,9 @@
 # - partition
 # - mia
 
-export MIA="miaadv" # trawic / ezmia / miaadv / loss
+export MIA="mkp" # trawic / ezmia / miaadv / loss / mkp
 export LLM="bigcode/starcoder2-3b" # bigcode/starcoder2-3b / bigcode/starcoder2-7b / bigcode/starcoder2-15b
-export SAMPLE_FRACTION=1
+export SAMPLE_FRACTION=0.1
 ####################################
 
 set -euo pipefail
