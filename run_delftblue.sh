@@ -18,7 +18,7 @@
 
 export MIA="miaadv" # trawic / ezmia / miaadv
 export LLM="bigcode/starcoder2-3b" # bigcode/starcoder2-3b / bigcode/starcoder2-7b / bigcode/starcoder2-15b
-export SAMPLE_FRACTION=0.01
+export SAMPLE_FRACTION=0.1
 ####################################
 
 set -euo pipefail

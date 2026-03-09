@@ -30,6 +30,8 @@ class AdvMIA(MIAttack):
         logger.info("MIAAdv: loading CodeBERT and CodeGPT feature models...")
         init_feature_models(target_device=model.device if hasattr(model, 'device') else None)
         logger.info("MIAAdv: feature models ready.")
+        # Keep the tail of long prefixes so the model sees the most recent context
+        self.tokenizer.truncation_side = 'left'
 
     @property
     def name(self) -> str:
@@ -87,12 +89,10 @@ class AdvMIA(MIAttack):
                 **inputs,
                 max_new_tokens=self.params.max_new_tokens,
                 pad_token_id=self.tokenizer.pad_token_id,
-        
                 eos_token_id=break_ids,
                 early_stopping=True,
-                do_sample=True,
-                top_k=self.params.top_k,
-                temperature=self.params.temperature,
+                do_sample=self.params.do_sample,
+                **({"top_k": self.params.top_k, "temperature": self.params.temperature} if self.params.do_sample else {}),
             )
 
         input_len = inputs['input_ids'].shape[1]

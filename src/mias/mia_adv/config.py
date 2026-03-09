@@ -7,8 +7,9 @@ class MIAAdvParams:
     # --- StarCoder2 inference ---
     max_input_tokens: int = 1024      # Truncation length for tokenizer input
     max_new_tokens: int = 50          # Max tokens to generate per sample
-    top_k: int = 50
-    temperature: float = 0.8
+    do_sample: bool = False           # False = greedy (deterministic); True = sampling (stochastic)
+    top_k: int = 50                   # Only used when do_sample=True
+    temperature: float = 0.8          # Only used when do_sample=True
 
     # --- MLP architecture ---
     hidden_dims: List[int] = field(default_factory=lambda: [512, 512, 512])
