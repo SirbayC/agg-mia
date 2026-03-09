@@ -17,3 +17,4 @@ class MIAAdvParams:
     batch_size: int = 4
     lr: float = 1e-3
     num_epochs: int = 25
+    val_split: float = 0.5   # Fraction of training features held out for validation (matches original MIA_Adv protocol)

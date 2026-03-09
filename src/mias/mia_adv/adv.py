@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
@@ -19,12 +20,12 @@ logger = logging.getLogger(__name__)
 _PERTURBATION_KEYS = list(PERTURBATIONS.keys())
 
 class AdvMIA(MIAttack):
-    def __init__(self, model, tokenizer, batch_size: int = 1):
-        super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size)
+    def __init__(self, model, tokenizer, batch_size: int = 1, seed: int = 42):
+        super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size, seed=seed)
         self.params = MIAAdvParams()
         self.mlp_classifier = None
         self.scaler = None
-        logger.info("Initialized MIAAdv MIA with parameters: \n {}".format(vars(self.params)))
+        logger.info("MIAAdv parameters:\n%s", "\n".join(f"  {k}: {v}" for k, v in vars(self.params).items()))
 
     @property
     def name(self) -> str:
@@ -134,13 +135,29 @@ class AdvMIA(MIAttack):
         logger.info("MIAAdv train: extracting features...")
         X, y = self._extract_features(output_df)
 
-        self.scaler = StandardScaler().fit(X)
-        X_scaled = self.scaler.transform(X)
+        # Stratified split to balance classes and produce a validation set,
+        # matching the original MIA_Adv training protocol.
+        X_train, X_val, y_train, y_val = train_test_split(
+            X, y,
+            test_size=self.params.val_split,
+            stratify=y,
+            random_state=self.seed,
+        )
+        logger.info(
+            "MIAAdv train: stratified split -> train=%d, val=%d (pos: %d/%d)",
+            len(y_train), len(y_val), y_train.sum(), y_val.sum(),
+        )
 
-        X_t = torch.from_numpy(X_scaled)
-        y_t = torch.from_numpy(y)
+        self.scaler = StandardScaler().fit(X_train)
+        X_train_scaled = self.scaler.transform(X_train)
+        X_val_scaled = self.scaler.transform(X_val)
 
-        input_dim = X_scaled.shape[1]
+        X_t = torch.from_numpy(X_train_scaled)
+        y_t = torch.from_numpy(y_train)
+        X_v = torch.from_numpy(X_val_scaled)
+        y_v = torch.from_numpy(y_val)
+
+        input_dim = X_train_scaled.shape[1]
         self.mlp_classifier = CustomMLP(
             input_dim=input_dim,
             hidden_dims=self.params.hidden_dims,
@@ -149,7 +166,7 @@ class AdvMIA(MIAttack):
         )
 
         logger.info("MIAAdv train: training MLP (input_dim=%d)...", input_dim)
-        train_mlp(self.mlp_classifier, X_t, y_t, batch_size=self.params.batch_size, lr=self.params.lr, num_epochs=self.params.num_epochs)
+        train_mlp(self.mlp_classifier, X_t, y_t, X_val=X_v, y_val=y_v, batch_size=self.params.batch_size, lr=self.params.lr, num_epochs=self.params.num_epochs)
         logger.info("MIAAdv train: done.")
 
     def evaluate(self, test_df: pd.DataFrame) -> List[float]:

@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 class EZMIA(MIAttack):
-    def __init__(self, model, tokenizer, batch_size: int = 1):
-        super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size)
+    def __init__(self, model, tokenizer, batch_size: int = 1, seed: int = 42):
+        super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size, seed=seed)
         self.reference_model = None
 
     @property

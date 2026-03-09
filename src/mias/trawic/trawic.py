@@ -13,13 +13,13 @@ from src.mias.trawic.feature_extractor import extract_features
 logger = logging.getLogger(__name__)
 
 class TraWiCMIA(MIAttack):
-    def __init__(self, model, tokenizer, batch_size: int = 1):
-        super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size)
+    def __init__(self, model, tokenizer, batch_size: int = 1, seed: int = 42):
+        super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size, seed=seed)
         self.classifier = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         
         self.params = TraWiCParams()
-        logger.info("Initialized TraWiC MIA with parameters: \n {}".format(vars(self.params)))
+        logger.info("TraWiC parameters:\n%s", "\n".join(f"  {k}: {v}" for k, v in vars(self.params).items()))
 
     @property
     def name(self) -> str:

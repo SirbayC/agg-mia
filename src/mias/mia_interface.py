@@ -7,10 +7,11 @@ import pandas as pd
 class MIAttack(ABC):
     """Abstract base class for Membership Inference Attacks."""
 
-    def __init__(self, model, tokenizer, batch_size: int):
+    def __init__(self, model, tokenizer, batch_size: int, seed: int = 42):
         self.model = model
         self.tokenizer = tokenizer
         self.batch_size = batch_size
+        self.seed = seed
 
     @property
     @abstractmethod

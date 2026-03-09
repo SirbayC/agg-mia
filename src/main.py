@@ -126,13 +126,7 @@ def main():
     set_global_seed(args.seed)
 
     logger.info(f"Starting AGG-MIA experiment")
-    logger.info(f"  MIA: {args.mia}")
-    logger.info(f"  Model: {args.model}")
-    logger.info(f"  Data directory: {args.data_dir}")
-    logger.info(f"  Sample fraction: {args.sample_fraction}")
-    logger.info(f"  Train size: {args.train_test_split}")
-    logger.info(f"  Seed: {args.seed}")
-
+    logger.info("Experiment parameters:\n%s", "\n".join(f"  {k}: {v}" for k, v in vars(args).items()))
 
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
@@ -177,6 +171,7 @@ def main():
             model=model,
             tokenizer=tokenizer,
             batch_size=args.batch_size,
+            seed=args.seed,
         )
         logger.info(f"MIA loaded successfully")
     except Exception as e:
