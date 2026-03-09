@@ -16,7 +16,7 @@
 # - partition
 # - mia
 
-export MIA="mkp" # trawic / ezmia / miaadv / loss / mkp
+export MIA="pac" # trawic / ezmia / miaadv / loss / mkp / pac
 export LLM="bigcode/starcoder2-3b" # bigcode/starcoder2-3b / bigcode/starcoder2-7b / bigcode/starcoder2-15b
 export SAMPLE_FRACTION=1
 ####################################
