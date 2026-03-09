@@ -131,10 +131,6 @@ def main():
     logger.info(f"Starting AGG-MIA experiment")
     logger.info("Experiment parameters:\n%s", "\n".join(f"  {k}: {v}" for k, v in vars(args).items()))
 
-    # Create output directory
-    os.makedirs(args.output_dir, exist_ok=True)
-    logger.info(f"Output directory: {args.output_dir}")
-
     # Load data
     logger.info("Loading data...")
     try:
@@ -204,6 +200,10 @@ def main():
             'label': test_df['label'],
             'score': test_scores
         })
+
+        # Create output directory
+        os.makedirs(args.output_dir, exist_ok=True)
+        logger.info(f"Created output directory: {args.output_dir}")
 
         # Save predictions
         save_predictions(

@@ -9,6 +9,7 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     roc_auc_score,
+    roc_curve,
     confusion_matrix,
 )
 
@@ -53,21 +54,27 @@ def compute_and_save_metrics(
     labels_array = np.array(results_df['label'])
     scores_array = np.array(results_df['score'])
 
-    # Convert scores to binary predictions using 0.5 threshold
-    predictions = (scores_array >= 0.5).astype(int)
+    # ROC-AUC and Youden's J optimal threshold
+    try:
+        roc_auc = roc_auc_score(labels_array, scores_array)
+        fpr_curve, tpr_curve, thresholds = roc_curve(labels_array, scores_array)
+        j_scores = tpr_curve - fpr_curve
+        best_idx = int(np.argmax(j_scores))
+        best_threshold = float(thresholds[best_idx])
+    except Exception as e:
+        logger.warning(f"Could not compute ROC-AUC / J threshold: {e}")
+        roc_auc = None
+        best_threshold = 0.0
+
+    # Convert scores to binary predictions using Youden's J optimal threshold
+    predictions = (scores_array >= best_threshold).astype(int)
+    logger.info(f"Youden's J optimal threshold: {best_threshold:.6f}")
 
     # Compute metrics
     accuracy = accuracy_score(labels_array, predictions)
     precision = precision_score(labels_array, predictions, zero_division=0)
     recall = recall_score(labels_array, predictions, zero_division=0)
     f1 = f1_score(labels_array, predictions, zero_division=0)
-
-    # ROC-AUC
-    try:
-        roc_auc = roc_auc_score(labels_array, scores_array)
-    except Exception as e:
-        logger.warning(f"Could not compute ROC-AUC: {e}")
-        roc_auc = None
 
     # Confusion matrix
     tn, fp, fn, tp = confusion_matrix(labels_array, predictions).ravel()
@@ -86,6 +93,7 @@ def compute_and_save_metrics(
             'specificity',
             'false_positive_rate',
             'roc_auc',
+            'threshold_j',
             'true_positives',
             'true_negatives',
             'false_positives',
@@ -99,6 +107,7 @@ def compute_and_save_metrics(
             specificity,
             fpr,
             roc_auc,
+            best_threshold,
             tp,
             tn,
             fp,
