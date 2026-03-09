@@ -8,7 +8,7 @@ from src.mias.mia_interface import MIAttack
 logger = logging.getLogger(__name__)
 
 
-class EZMIAMia(MIAttack):
+class EZMIA(MIAttack):
     def __init__(self, model, tokenizer, batch_size: int = 1):
         super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size)
         self.reference_model = None

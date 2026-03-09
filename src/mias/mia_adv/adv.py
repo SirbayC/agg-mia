@@ -6,6 +6,7 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 from sklearn.preprocessing import StandardScaler
+from tqdm import tqdm
 
 from src.mias.mia_interface import MIAttack
 from src.mias.mia_adv.config import MIAAdvParams
@@ -17,12 +18,13 @@ logger = logging.getLogger(__name__)
 # Fixed ordering of the 11 perturbation keys (matches traverse_all_variants output)
 _PERTURBATION_KEYS = list(PERTURBATIONS.keys())
 
-class MIAAdvMIA(MIAttack):
+class AdvMIA(MIAttack):
     def __init__(self, model, tokenizer, batch_size: int = 1):
         super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size)
         self.params = MIAAdvParams()
         self.mlp_classifier = None
         self.scaler = None
+        logger.info("Initialized MIAAdv MIA with parameters: \n {}".format(vars(self.params)))
 
     @property
     def name(self) -> str:
@@ -74,8 +76,7 @@ class MIAAdvMIA(MIAttack):
         for col_idx in range(12):
             col = f'text_{col_idx}'
             outputs = []
-            for i, text in enumerate(df[col]):
-                logger.info("Generating: variant %d, sample %d/%d", col_idx, i + 1, total)
+            for text in tqdm(df[col], desc=f"Generating variant {col_idx}", total=total):
                 outputs.append(self._generate_single(text))
             output_df[f'output_text_{col_idx}'] = outputs
         return output_df
