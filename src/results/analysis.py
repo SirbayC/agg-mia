@@ -4,13 +4,8 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
     roc_auc_score,
     roc_curve,
-    confusion_matrix,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,64 +49,29 @@ def compute_and_save_metrics(
     labels_array = np.array(results_df['label'])
     scores_array = np.array(results_df['score'])
 
-    # ROC-AUC and Youden's J optimal threshold
+    # ROC-based metrics required by downstream reporting.
     try:
         roc_auc = roc_auc_score(labels_array, scores_array)
-        fpr_curve, tpr_curve, thresholds = roc_curve(labels_array, scores_array)
-        j_scores = tpr_curve - fpr_curve
-        best_idx = int(np.argmax(j_scores))
-        best_threshold = float(thresholds[best_idx])
+        fpr_curve, tpr_curve, _ = roc_curve(labels_array, scores_array)
+        tpr_at_1pct_fpr = float(np.interp(0.01, fpr_curve, tpr_curve))
+        tpr_at_0_1pct_fpr = float(np.interp(0.001, fpr_curve, tpr_curve))
     except Exception as e:
-        logger.warning(f"Could not compute ROC-AUC / J threshold: {e}")
+        logger.warning(f"Could not compute ROC-based metrics: {e}")
         roc_auc = None
-        best_threshold = 0.0
-
-    # Convert scores to binary predictions using Youden's J optimal threshold
-    predictions = (scores_array >= best_threshold).astype(int)
-    logger.info(f"Youden's J optimal threshold: {best_threshold:.6f}")
-
-    # Compute metrics
-    accuracy = accuracy_score(labels_array, predictions)
-    precision = precision_score(labels_array, predictions, zero_division=0)
-    recall = recall_score(labels_array, predictions, zero_division=0)
-    f1 = f1_score(labels_array, predictions, zero_division=0)
-
-    # Confusion matrix
-    tn, fp, fn, tp = confusion_matrix(labels_array, predictions).ravel()
-
-    # Additional metrics
-    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
-    fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
+        tpr_at_1pct_fpr = None
+        tpr_at_0_1pct_fpr = None
 
     # Create metrics dataframe
     metrics_df = pd.DataFrame({
         'metric': [
-            'accuracy',
-            'precision',
-            'recall',
-            'f1_score',
-            'specificity',
-            'false_positive_rate',
-            'roc_auc',
-            'threshold_j',
-            'true_positives',
-            'true_negatives',
-            'false_positives',
-            'false_negatives',
+            'roc auc',
+            'TPR @ 1% FPR',
+            'TPR @ 0.1% FPR',
         ],
         'value': [
-            accuracy,
-            precision,
-            recall,
-            f1,
-            specificity,
-            fpr,
             roc_auc,
-            best_threshold,
-            tp,
-            tn,
-            fp,
-            fn,
+            tpr_at_1pct_fpr,
+            tpr_at_0_1pct_fpr,
         ]
     })
 
@@ -120,12 +80,12 @@ def compute_and_save_metrics(
     logger.info(f"Metrics saved to {metrics_file}")
 
     # Log metrics
-    logger.info(f"Binary Classification Metrics:")
-    logger.info(f"  Accuracy:  {accuracy:.4f}")
-    logger.info(f"  Precision: {precision:.4f}")
-    logger.info(f"  Recall:    {recall:.4f}")
-    logger.info(f"  F1-Score:  {f1:.4f}")
+    logger.info("ROC Metrics:")
     if roc_auc is not None:
-        logger.info(f"  ROC-AUC:   {roc_auc:.4f}")
+        logger.info(f"  ROC AUC:         {roc_auc:.4f}")
+    if tpr_at_1pct_fpr is not None:
+        logger.info(f"  TPR @ 1% FPR:    {tpr_at_1pct_fpr:.4f}")
+    if tpr_at_0_1pct_fpr is not None:
+        logger.info(f"  TPR @ 0.1% FPR:  {tpr_at_0_1pct_fpr:.4f}")
 
     return metrics_file

@@ -2,7 +2,7 @@
 Recompute metrics.csv from an existing predictions.csv.
 
 Usage:
-    python -m src.results.recompute_metrics <predictions_csv>
+    python -m src.results.scripts.recompute_metrics <predictions_csv>
 
 The metrics.csv is written next to the predictions file.
 """
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     if len(sys.argv) != 2:
-        print(f"Usage: python -m src.results.recompute_metrics <predictions_csv>")
+        print("Usage: python -m src.results.scripts.recompute_metrics <predictions_csv>")
         sys.exit(1)
 
     predictions_path = sys.argv[1]
