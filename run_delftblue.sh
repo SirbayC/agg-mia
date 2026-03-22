@@ -31,22 +31,12 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTDIR="$ROOT_DIR/outputs/runs/${TIMESTAMP}_${SLURM_JOB_ID}"
 mkdir -p "$OUTDIR"
 
-# Resource monitoring outputs
-GPU_LOG="$OUTDIR/gpu_stats.csv"
+# Resource monitoring output
 SYS_LOG="$OUTDIR/system_stats.log"
 
-# Start GPU monitor (every 10s) if nvidia-smi is available
-GPU_MON_PID=""
-if command -v nvidia-smi >/dev/null 2>&1; then
-  nvidia-smi \
-    --query-gpu=timestamp,index,name,utilization.gpu,utilization.memory,memory.used,memory.total,temperature.gpu,power.draw \
-    --format=csv \
-    -l 10 > "$GPU_LOG" 2>/dev/null &
-  GPU_MON_PID=$!
-  echo "Started GPU monitor (pid=$GPU_MON_PID): $GPU_LOG"
-else
-  echo "nvidia-smi not found; skipping GPU monitor"
-fi
+# Measure GPU usage of your job (initialization)
+GPU_ACCT_INIT=$(nvidia-smi --query-accounted-apps='gpu_utilization,mem_utilization,max_memory_usage,time' --format='csv' | /usr/bin/tail -n '+2')
+echo "GPU accounting snapshot at job start saved."
 
 # Start CPU/RAM monitor (every 10s)
 (
@@ -60,11 +50,8 @@ fi
 SYS_MON_PID=$!
 echo "Started system monitor (pid=$SYS_MON_PID): $SYS_LOG"
 
-# Ensure monitors are stopped on exit, error, or cancellation
+# Ensure system monitor is stopped on exit, error, or cancellation
 cleanup_monitors() {
-  if [[ -n "${GPU_MON_PID:-}" ]]; then
-    kill "$GPU_MON_PID" 2>/dev/null || true
-  fi
   if [[ -n "${SYS_MON_PID:-}" ]]; then
     kill "$SYS_MON_PID" 2>/dev/null || true
   fi
@@ -95,15 +82,20 @@ echo "=========================================="
 
 cd "$REPO_DIR"
 
+# Summary GPU info before running job
+echo "GPU info before job:"
+nvidia-smi
+
 python -u -m src.main \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
   --model="$LLM" \
   --sample_fraction="$SAMPLE_FRACTION"
 
+# Measure GPU usage of your job (result)
 echo "=========================================="
-echo "Slurm accounting summary:"
-sacct -j "${SLURM_JOB_ID}" --format=JobID,State,Elapsed,AllocTRES,ReqMem,MaxRSS,AveRSS,TotalCPU || true
+echo "GPU usage by job (accounting):"
+nvidia-smi --query-accounted-apps='gpu_utilization,mem_utilization,max_memory_usage,time' --format='csv' | /usr/bin/grep -v -F "$GPU_ACCT_INIT"
 echo "=========================================="
 
 echo "=========================================="
