@@ -31,6 +31,46 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTDIR="$ROOT_DIR/outputs/runs/${TIMESTAMP}_${SLURM_JOB_ID}"
 mkdir -p "$OUTDIR"
 
+# Resource monitoring outputs
+GPU_LOG="$OUTDIR/gpu_stats.csv"
+SYS_LOG="$OUTDIR/system_stats.log"
+
+# Start GPU monitor (every 10s) if nvidia-smi is available
+GPU_MON_PID=""
+if command -v nvidia-smi >/dev/null 2>&1; then
+  nvidia-smi \
+    --query-gpu=timestamp,index,name,utilization.gpu,utilization.memory,memory.used,memory.total,temperature.gpu,power.draw \
+    --format=csv \
+    -l 10 > "$GPU_LOG" 2>/dev/null &
+  GPU_MON_PID=$!
+  echo "Started GPU monitor (pid=$GPU_MON_PID): $GPU_LOG"
+else
+  echo "nvidia-smi not found; skipping GPU monitor"
+fi
+
+# Start CPU/RAM monitor (every 10s)
+(
+  while true; do
+    echo "----- $(date '+%F %T') -----"
+    free -h || true
+    top -b -n 1 | head -n 20 || true
+    sleep 10
+  done
+) > "$SYS_LOG" 2>&1 &
+SYS_MON_PID=$!
+echo "Started system monitor (pid=$SYS_MON_PID): $SYS_LOG"
+
+# Ensure monitors are stopped on exit, error, or cancellation
+cleanup_monitors() {
+  if [[ -n "${GPU_MON_PID:-}" ]]; then
+    kill "$GPU_MON_PID" 2>/dev/null || true
+  fi
+  if [[ -n "${SYS_MON_PID:-}" ]]; then
+    kill "$SYS_MON_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup_monitors EXIT INT TERM
+
 echo "=========================================="
 echo "Job ID:    $SLURM_JOB_ID"
 echo "Job Name:  $SLURM_JOB_NAME"
@@ -60,6 +100,11 @@ python -u -m src.main \
   --mia="$MIA" \
   --model="$LLM" \
   --sample_fraction="$SAMPLE_FRACTION"
+
+echo "=========================================="
+echo "Slurm accounting summary:"
+sacct -j "${SLURM_JOB_ID}" --format=JobID,State,Elapsed,AllocTRES,ReqMem,MaxRSS,AveRSS,TotalCPU || true
+echo "=========================================="
 
 echo "=========================================="
 echo "Job completed at: $(date)"
