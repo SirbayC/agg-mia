@@ -48,13 +48,13 @@ echo "timestamp,pid,process_name,used_gpu_memory,gpu_uuid" > "$GPU_APPS_LOG"
 
     nvidia-smi --query-gpu=index,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu --format=csv,noheader,nounits | /usr/bin/sed "s/^/$TS,/" >> "$GPU_LOG" || true
 
-    APP_LINES=$(nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory,gpu_uuid --format=csv,noheader,nounits 2>/dev/null || true)
-    if [[ -n "${APP_LINES// }" ]] && [[ "$APP_LINES" != *"No running processes found"* ]]; then
+    APP_LINES=$(nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory,gpu_uuid --format=csv,noheader,nounits 2>/dev/null | /usr/bin/grep "/scratch/cosminvasilesc/AGG-MIA/ENV/bin/python" || true)
+    if [[ -n "${APP_LINES// }" ]]; then
       while IFS= read -r line; do
         [[ -n "$line" ]] && echo "$TS,$line" >> "$GPU_APPS_LOG"
       done <<< "$APP_LINES"
     else
-      echo "$TS,NO_ACTIVE_COMPUTE_APPS,,," >> "$GPU_APPS_LOG"
+      echo "$TS,AGG_MIA_PROCESS_NOT_RUNNING,,," >> "$GPU_APPS_LOG"
     fi
 
     sleep 10
@@ -81,7 +81,6 @@ echo "=========================================="
 # Load modules
 module purge
 module load miniconda3
-module load slurm
 
 export HF_HOME="$HF_CACHE_DIR"
 export HF_HUB_OFFLINE=1
@@ -99,7 +98,7 @@ cd "$REPO_DIR"
 echo "GPU info before job:"
 nvidia-smi
 
-srun python -u -m src.main \
+python -u -m src.main \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
   --model="$LLM" \
