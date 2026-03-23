@@ -31,37 +31,21 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTDIR="$ROOT_DIR/outputs/runs/${TIMESTAMP}_${SLURM_JOB_ID}"
 mkdir -p "$OUTDIR"
 
-# Live GPU monitoring outputs
-GPU_LOG="$OUTDIR/gpu_live_stats.csv"
-GPU_APPS_LOG="$OUTDIR/gpu_compute_apps.csv"
+# Live GPU monitoring output
+GPU_LOG="$OUTDIR/gpu_stats.log"
 
-# Measure GPU usage of your job (initialization)
-GPU_ACCT_INIT=$(nvidia-smi --query-accounted-apps='gpu_utilization,mem_utilization,max_memory_usage,time' --format='csv' | /usr/bin/tail -n '+2')
-echo "GPU accounting snapshot at job start saved."
-
-# Start lightweight live GPU monitor (every 10s)
-echo "timestamp,index,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu" > "$GPU_LOG"
-echo "timestamp,pid,process_name,used_gpu_memory,gpu_uuid" > "$GPU_APPS_LOG"
+# Start full nvidia-smi monitor (every 20s)
 (
   while true; do
-    TS=$(date '+%F %T')
-
-    nvidia-smi --query-gpu=index,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu --format=csv,noheader,nounits | /usr/bin/sed "s/^/$TS,/" >> "$GPU_LOG" || true
-
-    APP_LINES=$(nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory,gpu_uuid --format=csv,noheader,nounits 2>/dev/null | /usr/bin/grep -F "/scratch/cosminvasilesc/AGG-MIA/ENV/bin/python" || true)
-    if [[ -n "${APP_LINES// }" ]]; then
-      while IFS= read -r line; do
-        [[ -n "$line" ]] && echo "$TS,$line" >> "$GPU_APPS_LOG"
-      done <<< "$APP_LINES"
-    else
-      echo "$TS,AGG_MIA_PROCESS_NOT_RUNNING,,," >> "$GPU_APPS_LOG"
-    fi
-
-    sleep 10
+    echo "=========================================="
+    echo "$(date '+%F %T')"
+    nvidia-smi || true
+    echo
+    sleep 20
   done
-) &
+) > "$GPU_LOG" 2>&1 &
 GPU_MON_PID=$!
-echo "Started live GPU monitor (pid=$GPU_MON_PID): $GPU_LOG and $GPU_APPS_LOG"
+echo "Started live GPU monitor (pid=$GPU_MON_PID): $GPU_LOG"
 
 cleanup_monitors() {
   if [[ -n "${GPU_MON_PID:-}" ]]; then
@@ -103,12 +87,6 @@ python -u -m src.main \
   --mia="$MIA" \
   --model="$LLM" \
   --sample_fraction="$SAMPLE_FRACTION"
-
-# Measure GPU usage of your job (result)
-echo "=========================================="
-echo "GPU usage by job (accounting):"
-nvidia-smi --query-accounted-apps='gpu_utilization,mem_utilization,max_memory_usage,time' --format='csv' | /usr/bin/grep -v -F "$GPU_ACCT_INIT"
-echo "=========================================="
 
 echo "=========================================="
 echo "Job completed at: $(date)"
