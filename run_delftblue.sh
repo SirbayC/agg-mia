@@ -4,7 +4,7 @@
 #SBATCH --partition=gpu-a100-small
 #SBATCH --time=01:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=4
 #SBATCH --gpus-per-task=1
 #SBATCH --mem-per-cpu=8000M
 #SBATCH --account=Education-EEMCS-Courses-CSE3000
@@ -77,10 +77,6 @@ echo "Python:  $(which python) — $(python --version)"
 echo "=========================================="
 
 cd "$REPO_DIR"
-
-# Summary GPU info before running job
-echo "GPU info before job:"
-nvidia-smi
 
 python -u -m src.main \
   --output_dir="$OUTDIR" \
