@@ -16,7 +16,7 @@
 # - partition
 export MIA="trawic" # trawic / ezmia / miaadv / loss / mkp / pac / bow
 export LLM="bigcode/starcoder2-3b" # bigcode/starcoder2-3b / bigcode/starcoder2-7b / bigcode/starcoder2-15b
-export SAMPLE_FRACTION=0.1
+export SAMPLE_FRACTION=0.01
 ####################################
 
 set -euo pipefail
@@ -31,29 +31,27 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTDIR="$ROOT_DIR/outputs/runs/${TIMESTAMP}_${SLURM_JOB_ID}"
 mkdir -p "$OUTDIR"
 
-# Resource monitoring output
-SYS_LOG="$OUTDIR/system_stats.log"
+# Live GPU monitoring output
+GPU_LOG="$OUTDIR/gpu_live_stats.csv"
 
 # Measure GPU usage of your job (initialization)
 GPU_ACCT_INIT=$(nvidia-smi --query-accounted-apps='gpu_utilization,mem_utilization,max_memory_usage,time' --format='csv' | /usr/bin/tail -n '+2')
 echo "GPU accounting snapshot at job start saved."
 
-# Start CPU/RAM monitor (every 10s)
+# Start lightweight live GPU monitor (every 10s)
+echo "timestamp,index,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu" > "$GPU_LOG"
 (
   while true; do
-    echo "----- $(date '+%F %T') -----"
-    free -h || true
-    top -b -n 1 | head -n 20 || true
+    nvidia-smi --query-gpu=timestamp,index,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu --format=csv,noheader,nounits || true
     sleep 10
   done
-) > "$SYS_LOG" 2>&1 &
-SYS_MON_PID=$!
-echo "Started system monitor (pid=$SYS_MON_PID): $SYS_LOG"
+) >> "$GPU_LOG" 2>&1 &
+GPU_MON_PID=$!
+echo "Started live GPU monitor (pid=$GPU_MON_PID): $GPU_LOG"
 
-# Ensure system monitor is stopped on exit, error, or cancellation
 cleanup_monitors() {
-  if [[ -n "${SYS_MON_PID:-}" ]]; then
-    kill "$SYS_MON_PID" 2>/dev/null || true
+  if [[ -n "${GPU_MON_PID:-}" ]]; then
+    kill "$GPU_MON_PID" 2>/dev/null || true
   fi
 }
 trap cleanup_monitors EXIT INT TERM
@@ -86,7 +84,7 @@ cd "$REPO_DIR"
 echo "GPU info before job:"
 nvidia-smi
 
-python -u -m src.main \
+srun python -u -m src.main \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
   --model="$LLM" \

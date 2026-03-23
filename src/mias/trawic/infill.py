@@ -82,7 +82,7 @@ def run_infill(
 
         # Check if input is too long
         if inputs.input_ids.shape[1] + params.max_generated_tokens > params.max_total_tokens:
-            logger.warning(f"    Input too long: {inputs.input_ids.shape[1]} tokens + {params.max_generated_tokens} max_tokens > {params.max_total_tokens}")
+            # logger.warning(f"    Input too long: {inputs.input_ids.shape[1]} tokens + {params.max_generated_tokens} max_tokens > {params.max_total_tokens}")
             return "too_many_tokens"
 
         # Build custom stopping tokens based on element type
