@@ -48,7 +48,7 @@ echo "timestamp,pid,process_name,used_gpu_memory,gpu_uuid" > "$GPU_APPS_LOG"
 
     nvidia-smi --query-gpu=index,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu --format=csv,noheader,nounits | /usr/bin/sed "s/^/$TS,/" >> "$GPU_LOG" || true
 
-    APP_LINES=$(nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory,gpu_uuid --format=csv,noheader,nounits 2>/dev/null | /usr/bin/grep -iE "(AGG.MIA|ENV.*python)" || true)
+    APP_LINES=$(nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory,gpu_uuid --format=csv,noheader,nounits 2>/dev/null | /usr/bin/grep -F "/scratch/cosminvasilesc/AGG-MIA/ENV/bin/python" || true)
     if [[ -n "${APP_LINES// }" ]]; then
       while IFS= read -r line; do
         [[ -n "$line" ]] && echo "$TS,$line" >> "$GPU_APPS_LOG"
