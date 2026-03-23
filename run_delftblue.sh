@@ -31,8 +31,9 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTDIR="$ROOT_DIR/outputs/runs/${TIMESTAMP}_${SLURM_JOB_ID}"
 mkdir -p "$OUTDIR"
 
-# Live GPU monitoring output
+# Live GPU monitoring outputs
 GPU_LOG="$OUTDIR/gpu_live_stats.csv"
+GPU_APPS_LOG="$OUTDIR/gpu_compute_apps.csv"
 
 # Measure GPU usage of your job (initialization)
 GPU_ACCT_INIT=$(nvidia-smi --query-accounted-apps='gpu_utilization,mem_utilization,max_memory_usage,time' --format='csv' | /usr/bin/tail -n '+2')
@@ -40,14 +41,27 @@ echo "GPU accounting snapshot at job start saved."
 
 # Start lightweight live GPU monitor (every 10s)
 echo "timestamp,index,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu" > "$GPU_LOG"
+echo "timestamp,pid,process_name,used_gpu_memory,gpu_uuid" > "$GPU_APPS_LOG"
 (
   while true; do
-    nvidia-smi --query-gpu=timestamp,index,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu --format=csv,noheader,nounits || true
+    TS=$(date '+%F %T')
+
+    nvidia-smi --query-gpu=index,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu --format=csv,noheader,nounits | /usr/bin/sed "s/^/$TS,/" >> "$GPU_LOG" || true
+
+    APP_LINES=$(nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory,gpu_uuid --format=csv,noheader,nounits 2>/dev/null || true)
+    if [[ -n "${APP_LINES// }" ]] && [[ "$APP_LINES" != *"No running processes found"* ]]; then
+      while IFS= read -r line; do
+        [[ -n "$line" ]] && echo "$TS,$line" >> "$GPU_APPS_LOG"
+      done <<< "$APP_LINES"
+    else
+      echo "$TS,NO_ACTIVE_COMPUTE_APPS,,," >> "$GPU_APPS_LOG"
+    fi
+
     sleep 10
   done
-) >> "$GPU_LOG" 2>&1 &
+) &
 GPU_MON_PID=$!
-echo "Started live GPU monitor (pid=$GPU_MON_PID): $GPU_LOG"
+echo "Started live GPU monitor (pid=$GPU_MON_PID): $GPU_LOG and $GPU_APPS_LOG"
 
 cleanup_monitors() {
   if [[ -n "${GPU_MON_PID:-}" ]]; then
@@ -67,6 +81,7 @@ echo "=========================================="
 # Load modules
 module purge
 module load miniconda3
+module load slurm
 
 export HF_HOME="$HF_CACHE_DIR"
 export HF_HUB_OFFLINE=1
