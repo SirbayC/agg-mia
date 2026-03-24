@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument(
         "--mia",
         type=str,
-        choices=["trawic", "ezmia", "miaadv", "loss", "mkp", "pac", "bow"],
+        choices=["trawic", "miaadv", "loss", "mkp", "pac", "bow"],
         required=True,
         help="Which MIA method to use",
     )
@@ -117,9 +117,6 @@ def load_mia_class(mia_name: str) -> Type[MIAttack]:
     if mia_name == "trawic":
         from src.mias.trawic.trawic import TraWiCMIA
         return TraWiCMIA
-    elif mia_name == "ezmia":
-        from src.mias.ez_mia.ez import EZMIA
-        return EZMIA
     elif mia_name == "miaadv":
         from src.mias.mia_adv.adv import AdvMIA
         return AdvMIA

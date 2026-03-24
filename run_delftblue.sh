@@ -14,11 +14,11 @@
 # PREFLIGHT CHECKS:
 # - time
 # - partition
-export MIA="trawic" # trawic / ezmia / miaadv / loss / mkp / pac / bow
+export MIA="trawic" # trawic / miaadv / loss / mkp / pac / bow
 export LLM="bigcode/starcoder2-3b" # bigcode/starcoder2-3b / bigcode/starcoder2-7b / bigcode/starcoder2-15b
 export SAMPLE_FRACTION=0.01
 export ATTN_IMPL="auto" # auto / flash_attention_2 / sdpa / eager
-export INSTALL_FLASH_ATTN=1 # 1 to install flash-attn in job env
+export INSTALL_FLASH_ATTN=0 # 1 to install flash-attn in job env
 ####################################
 
 set -euo pipefail
