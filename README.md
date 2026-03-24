@@ -225,9 +225,10 @@ Current tests are mainly in src/mias/trawic/tests.
 
 ## Future research paths
 
+In order of priority:
+1. experiment with llm acceleration to improve attack speed (sdpa, flash-attention, vLLM)
+1. miaadv: Experiment with the influence of having a whitespace around the split point, possibly interacting with the tokenization and affecting accuracy/ tokenize-then-split or split-then-tokenize (more tokens in either of these? -> what is being split)
 1. trawic: Experiment with different max_total_tokens and max_elements_per_type (assumed tradeoff between attack speed and accuracy)
 1. trawic: switch to parsing instead of using regex to find syntactic and semantic identifiers
 1. miaadv: Since the paper does not describe how a code file is split into a (prefix,suffix) tuple, current implementation splits it randomly between the 40% and 60% of length mark, without accounting for syntax. Experiment with different splitting methods, assumed tradeoff between prefix length and attack accuracy
-1. miaadv: Experiment with the influence of having a whitespace around the split point, possibly interacting with the tokenization and affecting accuracy
-1. experiment with llm acceleration to improve attack speed (sdpa, flash-attention, vLLM)
 1. current results are significantly below reported roc-auc, can this be due to pretraining vs fine-tuning training data detection?
