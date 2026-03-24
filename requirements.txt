@@ -10,7 +10,14 @@ pytest
 typing_extensions
 python-Levenshtein
 
+packaging 
+psutil 
+ninja 
+
+
 --extra-index-url https://download.pytorch.org/whl/cu126
 torch
 accelerate
 transformers
+
+# pip install flash-attn --no-build-isolation
