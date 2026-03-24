@@ -1,16 +1,5 @@
 # AGG-MIA
-
-Unified pipeline for evaluating membership inference attacks (MIAs) on code language models.
-
 Research question: given a code sample, can an attack infer whether it was in the target model pretraining distribution (member vs non-member)?
-
-## Scope, Assumptions, and Limitations
-
-### Scope
-
-- Binary membership inference on code samples.
-- Shared experiment driver for multiple attack families.
-- Primary target models are StarCoder2 variants.
 
 ### Core assumptions
 
@@ -42,7 +31,7 @@ For unseen files, this project relies on The Heap, deduplicated against The Stac
 - Compute allocation can strongly affect throughput and practical reproducibility (for example MIG vs full GPU).
 - Very small sample_fraction can produce unstable per-run metrics and noisy timing.
 
-### Implemented attacks
+## Implemented attacks
 
 | Attack | Idea | Paper | Adapted implementation (forked from original) |
 |---|---|---|---|
@@ -53,7 +42,7 @@ For unseen files, this project relies on The Heap, deduplicated against The Stac
 | pac | Polarized-Augment Calibration score | [Data Contamination Calibration for Black-box LLMs](https://arxiv.org/abs/2405.11930v1) | https://github.com/AISE-TUDelft/PoisonedChalice/blob/main/Pac.py |
 | bow | TF-IDF + logistic regression shift detector | N/A (control baseline) | N/A (implemented in this repo) |
 
-#### TraWiC process
+### TraWiC process
 
 Step 1: Pre-processing (Element Extraction): TraWiC parses a target script to extract unique syntactic identifiers (e.g., variable, function, and class names) and semantic identifiers (e.g., comments, strings, and docstrings). It then masks these specific elements, splitting the surrounding code into a "prefix" and a "suffix".
 
@@ -63,7 +52,7 @@ Step 3: Comparison (Hit Detection): The LLM's generated output is compared to th
 
 Step 4: Classification (Dataset Inclusion Prediction): The normalized "hit rates" for each of the six element categories are fed into a Machine Learning classifier (such as a Random Forest). The classifier evaluates these scores and outputs a final binary decision indicating whether the script was likely included in the model's training dataset.
 
-#### AdvPrompt-MIA (miaadv) process
+### AdvPrompt-MIA (miaadv) process
 
 Step 1: Baseline Inference (Unperturbed Query): The original code prefix is fed into the target code completion model (the victim model) to generate an initial, unperturbed code completion.
 
@@ -190,7 +179,7 @@ This section is for modifying or extending the codebase.
 3. See latest logs with:
 
 ```bash
-tail -f "$(ls -t | head -n 1)"
+tail -100f "$(ls -t | head -n 1)"
 ```
 
 4. Copy outputs to local machine and clear remote run outputs with:
@@ -233,3 +222,12 @@ pytest -q
 ```
 
 Current tests are mainly in src/mias/trawic/tests.
+
+## Future research paths
+
+1. trawic: Experiment with different max_total_tokens and max_elements_per_type (assumed tradeoff between attack speed and accuracy)
+1. trawic: switch to parsing instead of using regex to find syntactic and semantic identifiers
+1. miaadv: Since the paper does not describe how a code file is split into a (prefix,suffix) tuple, current implementation splits it randomly between the 40% and 60% of length mark, without accounting for syntax. Experiment with different splitting methods, assumed tradeoff between prefix length and attack accuracy
+1. miaadv: Experiment with the influence of having a whitespace around the split point, possibly interacting with the tokenization and affecting accuracy
+1. experiment with llm acceleration to improve attack speed (sdpa, flash-attention, vLLM)
+1. current results are significantly below reported roc-auc, can this be due to pretraining vs fine-tuning training data detection?
