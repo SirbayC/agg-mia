@@ -17,6 +17,8 @@
 export MIA="trawic" # trawic / ezmia / miaadv / loss / mkp / pac / bow
 export LLM="bigcode/starcoder2-3b" # bigcode/starcoder2-3b / bigcode/starcoder2-7b / bigcode/starcoder2-15b
 export SAMPLE_FRACTION=0.01
+export ATTN_IMPL="auto" # auto / flash_attention_2 / sdpa / eager
+export INSTALL_FLASH_ATTN=1 # 1 to install flash-attn in job env
 ####################################
 
 set -euo pipefail
@@ -71,6 +73,30 @@ export HF_HUB_OFFLINE=1
 
 conda activate "$CONDA_ENV_PATH"
 
+if [[ "$INSTALL_FLASH_ATTN" == "1" ]]; then
+  echo "Installing flash-attn (INSTALL_FLASH_ATTN=1)..."
+
+  if module load cuda/12.6 2>/dev/null; then
+    echo "Loaded CUDA module: cuda/12.6"
+  elif module load cuda 2>/dev/null; then
+    echo "Loaded CUDA module: cuda"
+  else
+    echo "ERROR: Could not load a CUDA module for flash-attn build."
+    exit 1
+  fi
+
+  if ! command -v nvcc >/dev/null 2>&1; then
+    echo "ERROR: nvcc not found after loading CUDA module."
+    exit 1
+  fi
+
+  export CUDA_HOME="$(dirname "$(dirname "$(which nvcc)")")"
+  export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-8.0}"
+
+  python -m pip install --no-build-isolation flash-attn
+  python -c "import flash_attn; print('flash-attn import OK')"
+fi
+
 echo "Python:  $(which python) — $(python --version)"
 # echo "PyTorch: $(python -c 'import torch; print(torch.__version__)')"
 # echo "CUDA:    $(python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else "")')"
@@ -82,6 +108,7 @@ python -u -m src.main \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
   --model="$LLM" \
+  --attn_implementation="$ATTN_IMPL" \
   --sample_fraction="$SAMPLE_FRACTION"
 
 echo "=========================================="
