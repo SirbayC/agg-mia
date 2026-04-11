@@ -17,7 +17,6 @@
 export MIA="trawic" # trawic / miaadv / loss / mkp / pac / bow
 export LLM="bigcode/starcoder2-3b" # bigcode/starcoder2-3b / bigcode/starcoder2-7b / bigcode/starcoder2-15b
 export SAMPLE_FRACTION=0.01
-export ATTN_IMPL="auto" # auto / flash_attention_2 / sdpa / eager
 export INSTALL_FLASH_ATTN=0 # 1 to install flash-attn in job env
 ####################################
 
@@ -108,7 +107,6 @@ python -u -m src.main \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
   --model="$LLM" \
-  --attn_implementation="$ATTN_IMPL" \
   --sample_fraction="$SAMPLE_FRACTION"
 
 echo "=========================================="

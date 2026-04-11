@@ -76,13 +76,6 @@ Base dependencies:
 pip install -r requirements.txt
 ```
 
-Optional acceleration:
-
-```bash
-pip install --no-build-isolation flash-attn
-```
-
-If flash-attn is unavailable, use sdpa or auto attention backend.
 
 ### 2) Local run
 
@@ -90,7 +83,6 @@ If flash-attn is unavailable, use sdpa or auto attention backend.
 python -u -m src.main \
   --mia trawic \
   --model bigcode/starcoder2-3b \
-  --attn_implementation auto \
   --data_dir ./data \
   --sample_fraction 0.01 \
   --train_test_split 0.8 \
@@ -103,7 +95,6 @@ Key CLI arguments:
 
 - --mia: trawic | miaadv | loss | mkp | pac | bow
 - --model: Hugging Face model id
-- --attn_implementation: auto | flash_attention_2 | sdpa | eager
 - --sample_fraction: fraction loaded from each split
 - --output_dir: destination for predictions and metrics
 
@@ -118,7 +109,6 @@ Use:
 run_delftblue.sh controls cluster-side settings such as:
 
 - MIA, LLM, SAMPLE_FRACTION
-- ATTN_IMPL
 - INSTALL_FLASH_ATTN
 
 Important: submit_delftblue.sh currently auto-commits and pushes local changes before submission.
@@ -200,7 +190,7 @@ AGG_MIA/
 │   ├── main.py                    # CLI and experiment orchestration
 │   ├── datasets/                  # Download and loading pipeline
 │   ├── models/
-│   │   └── loader.py              # Tokenizer/model loading, dtype, attention backend
+│   │   └── loader.py              # Tokenizer/model loading and dtype selection
 │   ├── mias/                      # Attack implementations and configs
 │   └── results/                   # Prediction/metric export and aggregation scripts
 ├── run_delftblue.sh               # Cluster run script (SLURM job)
@@ -226,7 +216,7 @@ Current tests are mainly in src/mias/trawic/tests.
 ## Future research paths
 
 In order of priority:
-1. experiment with llm acceleration to improve attack speed (sdpa, flash-attention, vLLM)
+1. experiment with llm acceleration to improve attack speed (vLLM)
 1. miaadv: Experiment with the influence of having a whitespace around the split point, possibly interacting with the tokenization and affecting accuracy/ tokenize-then-split or split-then-tokenize (more tokens in either of these? -> what is being split)
 1. trawic: Experiment with different max_total_tokens and max_elements_per_type (assumed tradeoff between attack speed and accuracy)
 1. trawic: switch to parsing instead of using regex to find syntactic and semantic identifiers

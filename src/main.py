@@ -62,13 +62,6 @@ def parse_args():
         help="Target model hf id",
     )
     parser.add_argument(
-        "--attn_implementation",
-        type=str,
-        default="auto",
-        choices=["auto", "flash_attention_2", "sdpa", "eager"],
-        help="Attention backend for model loading",
-    )
-    parser.add_argument(
         "--data_dir",
         type=str,
         default="./data",
@@ -173,10 +166,7 @@ def main():
     if MIAClass.requires_model:
         logger.info("Loading target model and tokenizer...")
         try:
-            model, tokenizer = load_model_and_tokenizer(
-                args.model,
-                attn_implementation=args.attn_implementation,
-            )
+            model, tokenizer = load_model_and_tokenizer(args.model)
             logger.info("Model and tokenizer loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load model/tokenizer: {e}")
