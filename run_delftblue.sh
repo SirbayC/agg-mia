@@ -8,7 +8,7 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --mem-per-cpu=8000M
 #SBATCH --account=Education-EEMCS-Courses-CSE3000
-#SBATCH --output=/scratch/cosminvasilesc/AGG-MIA/outputs/logs/slurm-%j.out
+#SBATCH --output=/scratch/cosminvasilesc/AGG_MIA/outputs/logs/slurm-%j.out
 
 ####################################
 # PREFLIGHT CHECKS:
@@ -21,7 +21,7 @@ export SAMPLE_FRACTION=0.01
 
 set -euo pipefail
 
-ROOT_DIR="/scratch/cosminvasilesc/AGG-MIA"
+ROOT_DIR="/scratch/cosminvasilesc/AGG_MIA"
 REPO_DIR="$ROOT_DIR/agg-mia"
 HF_CACHE_DIR="/scratch/cosminvasilesc/HF_CACHE"
 UV_CACHE_DIR="/scratch/cosminvasilesc/UV_CACHE"
