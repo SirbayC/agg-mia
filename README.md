@@ -73,14 +73,20 @@ This section is only about executing experiments.
 Base dependencies:
 
 ```bash
-pip install -r requirements.txt
+uv sync
+```
+
+If uv is not installed yet:
+
+```bash
+python -m pip install -U uv
 ```
 
 
 ### 2) Local run
 
 ```bash
-python -u -m src.main \
+uv run python -u -m src.main \
   --mia trawic \
   --model bigcode/starcoder2-3b \
   --data_dir ./data \
@@ -109,7 +115,36 @@ Use:
 run_delftblue.sh controls cluster-side settings such as:
 
 - MIA, LLM, SAMPLE_FRACTION
-- INSTALL_FLASH_ATTN
+
+The job now runs with uv (`uv sync --frozen` then `uv run ...`) inside the activated conda env.
+
+### 3.1) Recreate DelftBlue environment (from scratch)
+
+Run once on DelftBlue:
+
+```bash
+module purge
+module load miniconda3
+
+export ROOT_DIR="/scratch/cosminvasilesc/AGG-MIA"
+export REPO_DIR="$ROOT_DIR/agg-mia"
+export CONDA_ENV_PATH="$ROOT_DIR/ENV"
+
+conda create -y -p "$CONDA_ENV_PATH" python=3.10
+conda activate "$CONDA_ENV_PATH"
+
+python -m pip install -U uv
+
+cd "$REPO_DIR"
+uv lock
+uv sync --frozen
+```
+
+Submit jobs as usual:
+
+```bash
+./submit_delftblue.sh
+```
 
 Important: submit_delftblue.sh currently auto-commits and pushes local changes before submission.
 
@@ -130,13 +165,13 @@ The DelftBlue run script also stores gpu_stats.log snapshots.
 Aggregate runs into an interactive dashboard:
 
 ```bash
-python -m src.results.scripts.unify_metrics <root_folder>
+uv run python -m src.results.scripts.unify_metrics <root_folder>
 ```
 
 Recompute metrics from saved predictions:
 
 ```bash
-python -m src.results.scripts.recompute_metrics <predictions_csv>
+uv run python -m src.results.scripts.recompute_metrics <predictions_csv>
 ```
 
 ---
@@ -147,9 +182,9 @@ To download (smol) files:
 
 1. `module load miniconda3 && conda activate /scratch/cosminvasilesc/AGG-MIA/ENV`
 2. Set `SWH_TOKEN` in the environment using: https://archive.softwareheritage.org/oidc/profile/#tokens
-3. Run from repo root: `python src/datasets/download_seen.py`
-4. Run from repo root: `python src/datasets/download_unseen.py`
-5. Run from repo root: `python src/datasets/show_parquet_samples.py`
+3. Run from repo root: `uv run python src/datasets/download_seen.py`
+4. Run from repo root: `uv run python src/datasets/download_unseen.py`
+5. Run from repo root: `uv run python src/datasets/show_parquet_samples.py`
 
 ---
 
@@ -182,6 +217,8 @@ scp -r cosminvasilesc@login.delftblue.tudelft.nl:/scratch/cosminvasilesc/AGG-MIA
 
 ```text
 AGG_MIA/
+├── pyproject.toml                # uv project metadata and dependencies
+├── uv.lock                       # locked dependency resolution
 ├── analysis/                      # Research (preliminary) results
 ├── data/
 │   ├── seen/

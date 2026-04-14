@@ -19,5 +19,3 @@ ninja
 torch
 accelerate
 transformers
-
-# pip install flash-attn --no-build-isolation

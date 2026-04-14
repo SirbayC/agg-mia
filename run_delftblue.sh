@@ -17,7 +17,6 @@
 export MIA="trawic" # trawic / miaadv / loss / mkp / pac / bow
 export LLM="bigcode/starcoder2-3b" # bigcode/starcoder2-3b / bigcode/starcoder2-7b / bigcode/starcoder2-15b
 export SAMPLE_FRACTION=0.01
-export INSTALL_FLASH_ATTN=0 # 1 to install flash-attn in job env
 ####################################
 
 set -euo pipefail
@@ -72,28 +71,9 @@ export HF_HUB_OFFLINE=1
 
 conda activate "$CONDA_ENV_PATH"
 
-if [[ "$INSTALL_FLASH_ATTN" == "1" ]]; then
-  echo "Installing flash-attn (INSTALL_FLASH_ATTN=1)..."
-
-  if module load cuda/12.6 2>/dev/null; then
-    echo "Loaded CUDA module: cuda/12.6"
-  elif module load cuda 2>/dev/null; then
-    echo "Loaded CUDA module: cuda"
-  else
-    echo "ERROR: Could not load a CUDA module for flash-attn build."
-    exit 1
-  fi
-
-  if ! command -v nvcc >/dev/null 2>&1; then
-    echo "ERROR: nvcc not found after loading CUDA module."
-    exit 1
-  fi
-
-  export CUDA_HOME="$(dirname "$(dirname "$(which nvcc)")")"
-  export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-8.0}"
-
-  python -m pip install --no-build-isolation flash-attn
-  python -c "import flash_attn; print('flash-attn import OK')"
+if ! command -v uv >/dev/null 2>&1; then
+  echo "ERROR: uv not found in $CONDA_ENV_PATH. Install it once with: python -m pip install -U uv"
+  exit 1
 fi
 
 echo "Python:  $(which python) — $(python --version)"
@@ -103,7 +83,9 @@ echo "=========================================="
 
 cd "$REPO_DIR"
 
-python -u -m src.main \
+uv sync --frozen
+
+uv run python -u -m src.main \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
   --model="$LLM" \
