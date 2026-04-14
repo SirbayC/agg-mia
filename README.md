@@ -130,6 +130,7 @@ module load python
 
 export ROOT_DIR="/scratch/cosminvasilesc/AGG-MIA"
 export REPO_DIR="$ROOT_DIR/agg-mia"
+export UV_CACHE_DIR="/scratch/cosminvasilesc/UV_CACHE"
 
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"

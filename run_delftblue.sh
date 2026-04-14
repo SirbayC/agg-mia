@@ -24,6 +24,7 @@ set -euo pipefail
 ROOT_DIR="/scratch/cosminvasilesc/AGG-MIA"
 REPO_DIR="$ROOT_DIR/agg-mia"
 HF_CACHE_DIR="/scratch/cosminvasilesc/HF_CACHE"
+UV_CACHE_DIR="/scratch/cosminvasilesc/UV_CACHE"
 
 # Create output directory for this run
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -67,8 +68,8 @@ module load 2025
 module load python
 
 export HF_HOME="$HF_CACHE_DIR"
+export UV_CACHE_DIR="$UV_CACHE_DIR" 
 export HF_HUB_OFFLINE=1
-export UV_LINK_MODE=copy
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 if ! command -v uv >/dev/null 2>&1; then
