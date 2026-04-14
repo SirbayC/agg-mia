@@ -10,7 +10,7 @@ else
 fi
 
 NETID="cosminvasilesc"
-REMOTE_DIR="/scratch/${NETID}/AGG-MIA/agg-mia" # Check project name
+REMOTE_DIR="/scratch/${NETID}/AGG_MIA/agg-mia" # Check project name
 
 ssh delftblue << EOF
 set -euo pipefail
