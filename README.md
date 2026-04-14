@@ -116,7 +116,8 @@ run_delftblue.sh controls cluster-side settings such as:
 
 - MIA, LLM, SAMPLE_FRACTION
 
-The job now runs with uv (`uv sync --frozen` then `uv run ...`) inside the activated conda env.
+The job now runs with uv (`uv sync --frozen` then `uv run ...`) on the DelftBlue Python module stack.
+The Python version is pinned in [.python-version](.python-version).
 
 ### 3.1) Recreate DelftBlue environment (from scratch)
 
@@ -124,19 +125,16 @@ Run once on DelftBlue:
 
 ```bash
 module purge
-module load miniconda3
+module load 2025
+module load python
 
 export ROOT_DIR="/scratch/cosminvasilesc/AGG-MIA"
 export REPO_DIR="$ROOT_DIR/agg-mia"
-export CONDA_ENV_PATH="$ROOT_DIR/ENV"
 
-conda create -y -p "$CONDA_ENV_PATH" python=3.10
-conda activate "$CONDA_ENV_PATH"
-
-python -m pip install -U uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 cd "$REPO_DIR"
-uv lock
 uv sync --frozen
 ```
 
@@ -180,7 +178,7 @@ uv run python -m src.results.scripts.recompute_metrics <predictions_csv>
 
 To download (smol) files:
 
-1. `module load miniconda3 && conda activate /scratch/cosminvasilesc/AGG-MIA/ENV`
+1. `module load 2025 && module load python`
 2. Set `SWH_TOKEN` in the environment using: https://archive.softwareheritage.org/oidc/profile/#tokens
 3. Run from repo root: `uv run python src/datasets/download_seen.py`
 4. Run from repo root: `uv run python src/datasets/download_unseen.py`
@@ -219,6 +217,7 @@ scp -r cosminvasilesc@login.delftblue.tudelft.nl:/scratch/cosminvasilesc/AGG-MIA
 AGG_MIA/
 ├── pyproject.toml                # uv project metadata and dependencies
 ├── uv.lock                       # locked dependency resolution
+├── .python-version               # pinned Python interpreter version for uv
 ├── analysis/                      # Research (preliminary) results
 ├── data/
 │   ├── seen/

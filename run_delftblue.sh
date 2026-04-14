@@ -23,7 +23,6 @@ set -euo pipefail
 
 ROOT_DIR="/scratch/cosminvasilesc/AGG-MIA"
 REPO_DIR="$ROOT_DIR/agg-mia"
-CONDA_ENV_PATH="$ROOT_DIR/ENV"
 HF_CACHE_DIR="/scratch/cosminvasilesc/HF_CACHE"
 
 # Create output directory for this run
@@ -64,15 +63,16 @@ echo "=========================================="
 
 # Load modules
 module purge
-module load miniconda3
+module load 2025
+module load python
 
 export HF_HOME="$HF_CACHE_DIR"
 export HF_HUB_OFFLINE=1
-
-conda activate "$CONDA_ENV_PATH"
+export UV_LINK_MODE=copy
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 if ! command -v uv >/dev/null 2>&1; then
-  echo "ERROR: uv not found in $CONDA_ENV_PATH. Install it once with: python -m pip install -U uv"
+  echo "ERROR: uv not found. Install it once with: curl -LsSf https://astral.sh/uv/install.sh | sh"
   exit 1
 fi
 
