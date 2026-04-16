@@ -21,16 +21,5 @@ dependencies = [
     "torch",
     "transformers",
     "typing_extensions",
-    "vllm>=0.2.5",
+    "vllm",
 ]
-
-[tool.uv]
-package = false
-
-[[tool.uv.index]]
-name = "pytorch-cu126"
-url = "https://download.pytorch.org/whl/cu126"
-explicit = true
-
-[tool.uv.sources]
-torch = { index = "pytorch-cu126" }
