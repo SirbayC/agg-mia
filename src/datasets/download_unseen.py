@@ -18,7 +18,6 @@ def main():
         ds = load_dataset(
             DATASET_NAME, 
             "Python", 
-            trust_remote_code=True, 
             streaming=True, 
             split="train"
         )
