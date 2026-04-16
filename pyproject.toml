@@ -21,6 +21,7 @@ dependencies = [
     "torch",
     "transformers",
     "typing_extensions",
+    "vllm>=0.2.5",
 ]
 
 [tool.uv]
