@@ -73,7 +73,7 @@ This section is only about executing experiments.
 Base dependencies:
 
 ```bash
-uv sync
+uv sync --frozen
 ```
 
 If uv is not installed yet:
@@ -101,6 +101,7 @@ Key CLI arguments:
 
 - --mia: trawic | miaadv | loss | mkp | pac | bow
 - --model: Hugging Face model id
+- --infer_engine: hf | vllm (vllm currently supported for trawic)
 - --sample_fraction: fraction loaded from each split
 - --output_dir: destination for predictions and metrics
 

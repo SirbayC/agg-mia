@@ -14,7 +14,7 @@ from typing import Type
 import numpy as np
 import pandas as pd
 
-from src.models.loader import load_model_and_tokenizer
+from src.models.loader import load_model_and_tokenizer, load_vllm_model_and_tokenizer
 from src.datasets.data_loader import load_data
 from src.mias.mia_interface import MIAttack
 from src.results.analysis import save_predictions, compute_and_save_metrics
@@ -60,6 +60,13 @@ def parse_args():
         type=str,
         required=True,
         help="Target model hf id",
+    )
+    parser.add_argument(
+        "--infer_engine",
+        type=str,
+        default="hf",
+        choices=["hf", "vllm"],
+        help="Inference backend: hf (transformers) or vllm",
     )
     parser.add_argument(
         "--data_dir",
@@ -166,7 +173,15 @@ def main():
     if MIAClass.requires_model:
         logger.info("Loading target model and tokenizer...")
         try:
-            model, tokenizer = load_model_and_tokenizer(args.model)
+            if args.infer_engine == "vllm":
+                if args.mia != "trawic":
+                    raise ValueError(
+                        "vLLM backend is currently implemented only for TraWiC. "
+                        "Use --infer_engine hf for other MIAs."
+                    )
+                model, tokenizer = load_vllm_model_and_tokenizer(args.model)
+            else:
+                model, tokenizer = load_model_and_tokenizer(args.model)
             logger.info("Model and tokenizer loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load model/tokenizer: {e}")

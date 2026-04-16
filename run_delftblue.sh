@@ -77,20 +77,14 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Python:  $(which python) — $(python --version)"
-# echo "PyTorch: $(python -c 'import torch; print(torch.__version__)')"
-# echo "CUDA:    $(python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else "")')"
-echo "=========================================="
-
 cd "$REPO_DIR"
-
-uv sync --frozen
 
 uv run python -u -m src.main \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
   --model="$LLM" \
-  --sample_fraction="$SAMPLE_FRACTION"
+  --sample_fraction="$SAMPLE_FRACTION" \
+  --infer_engine vllm
 
 echo "=========================================="
 echo "Job completed at: $(date)"
