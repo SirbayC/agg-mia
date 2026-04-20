@@ -18,10 +18,8 @@ dependencies = [
     "python-Levenshtein",
     "requests",
     "scikit-learn",
-    "torch",
     "transformers",
     "typing_extensions",
-    "vllm",
 ]
 
 [tool.uv]
@@ -31,6 +29,3 @@ package = false
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
 explicit = true
-
-[tool.uv.sources]
-torch = { index = "pytorch-cu128" }
