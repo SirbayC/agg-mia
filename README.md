@@ -117,7 +117,7 @@ run_delftblue.sh controls cluster-side settings such as:
 
 - MIA, LLM, SAMPLE_FRACTION
 
-The job now runs with uv (`uv sync --frozen` then `uv run ...`) on the DelftBlue Python module stack.
+The job now runs with uv in locked, offline-safe mode (`uv run --frozen --no-sync ...`) on the DelftBlue Python module stack.
 The Python version is pinned in [.python-version](.python-version).
 
 ### 3.1) Recreate DelftBlue environment (from scratch)
@@ -129,7 +129,7 @@ module purge
 module load 2025
 module load python
 
-export ROOT_DIR="/scratch/cosminvasilesc/AGG-MIA"
+export ROOT_DIR="/scratch/cosminvasilesc/AGG_MIA"
 export REPO_DIR="$ROOT_DIR/agg-mia"
 export UV_CACHE_DIR="/scratch/cosminvasilesc/UV_CACHE"
 
@@ -137,8 +137,15 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 cd "$REPO_DIR"
+
+uv venv --python 3.12 --seed --managed-python
+source .venv/bin/activate
+uv pip install --only-binary vllm vllm --torch-backend=cu128
+uv lock
 uv sync --frozen
 ```
+
+Use check_env.py to make sure the environment is correctly set up. (Un-comment the line in run_delftblue.sh)
 
 Submit jobs as usual:
 

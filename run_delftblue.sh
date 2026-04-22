@@ -72,6 +72,19 @@ export UV_CACHE_DIR="$UV_CACHE_DIR"
 export HF_HUB_OFFLINE=1
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
+# vLLM 0.11.x can fail when CUDA_VISIBLE_DEVICES contains MIG UUIDs.
+# Remap to logical indices (0,1,...) for compatibility.
+if [[ -n "${CUDA_VISIBLE_DEVICES:-}" && "${CUDA_VISIBLE_DEVICES}" == *MIG-* ]]; then
+  IFS=',' read -r -a _cuda_devs <<< "$CUDA_VISIBLE_DEVICES"
+  _logical_devs=()
+  for i in "${!_cuda_devs[@]}"; do
+    _logical_devs+=("$i")
+  done
+  _logical_csv=$(IFS=,; echo "${_logical_devs[*]}")
+  echo "Detected MIG device UUID(s) in CUDA_VISIBLE_DEVICES; remapping to logical index list: ${_logical_csv}"
+  export CUDA_VISIBLE_DEVICES="${_logical_csv}"
+fi
+
 if ! command -v uv >/dev/null 2>&1; then
   echo "ERROR: uv not found. Install it once with: curl -LsSf https://astral.sh/uv/install.sh | sh"
   exit 1
@@ -79,7 +92,7 @@ fi
 
 cd "$REPO_DIR"
 
-uv run --frozen --no-sync python check_env.py
+# uv run --frozen --no-sync python check_env.py
 
 uv run --frozen --no-sync python -u -m src.main \
   --output_dir="$OUTDIR" \
