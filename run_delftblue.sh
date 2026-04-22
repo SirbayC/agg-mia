@@ -79,6 +79,8 @@ fi
 
 cd "$REPO_DIR"
 
+uv run python check_env.py
+
 uv run python -u -m src.main \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
