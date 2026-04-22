@@ -18,8 +18,11 @@ dependencies = [
     "python-Levenshtein",
     "requests",
     "scikit-learn",
+    "torch",
+    "torchvision",
     "transformers",
     "typing_extensions",
+    "vllm",
 ]
 
 [tool.uv]
