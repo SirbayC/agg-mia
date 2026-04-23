@@ -14,6 +14,7 @@ from src.mias.mia_interface import MIAttack
 from src.mias.mia_adv.config import MIAAdvParams
 from src.mias.mia_adv.perturb import traverse_all_variants, PERTURBATIONS
 from src.mias.mia_adv.classifier import init_feature_models, compute_features, CustomMLP, train_mlp
+from src.models.vllm_backend import generate_text, is_vllm_model
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class AdvMIA(MIAttack):
         self.scaler = None
         logger.info("MIAAdv parameters:\n%s", "\n".join(f"  {k}: {v}" for k, v in vars(self.params).items()))
         logger.info("MIAAdv: loading CodeBERT and CodeGPT feature models...")
-        init_feature_models(target_device=model.device if hasattr(model, 'device') else None)
+        init_feature_models(target_device=getattr(model, "device", None))
         logger.info("MIAAdv: feature models ready.")
         # Keep the tail of long prefixes so the model sees the most recent context
         self.tokenizer.truncation_side = 'left'
@@ -71,32 +72,27 @@ class AdvMIA(MIAttack):
 
     def _generate_single(self, text: str) -> str:
         """Greedy decode on one text, returning only the newly generated tokens."""
-        inputs = self.tokenizer(
-            text,
-            return_tensors='pt',
-            truncation=True,
-            max_length=self.params.max_input_tokens,
-        )
-        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+        if not is_vllm_model(self.model):
+            raise RuntimeError("MIAAdv requires the vLLM backend.")
 
         newline_token_id = self.tokenizer.encode('\n', add_special_tokens=False)[-1]
         break_ids = [self.tokenizer.eos_token_id, newline_token_id]
         if self.tokenizer.sep_token_id is not None:
             break_ids.append(self.tokenizer.sep_token_id)
 
-        with torch.no_grad():
-            output_ids = self.model.generate(
-                **inputs,
-                max_new_tokens=self.params.max_new_tokens,
-                pad_token_id=self.tokenizer.pad_token_id,
-                eos_token_id=break_ids,
-                early_stopping=True,
-                do_sample=self.params.do_sample,
-                **({"top_k": self.params.top_k, "temperature": self.params.temperature} if self.params.do_sample else {}),
-            )
-
-        input_len = inputs['input_ids'].shape[1]
-        return self.tokenizer.decode(output_ids[0][input_len:], skip_special_tokens=True)
+        generated_text = generate_text(
+            model=self.model,
+            tokenizer=self.tokenizer,
+            prompt=text,
+            max_input_tokens=self.params.max_input_tokens,
+            max_generated_tokens=self.params.max_new_tokens,
+            temperature=self.params.temperature,
+            top_p=1.0,
+            do_sample=self.params.do_sample,
+            top_k=self.params.top_k,
+            stop_token_ids=break_ids,
+        )
+        return generated_text
 
     def _generate_outputs(self, df: pd.DataFrame) -> pd.DataFrame:
         """

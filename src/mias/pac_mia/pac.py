@@ -4,12 +4,11 @@ from typing import List
 
 import numpy as np
 import pandas as pd
-import torch
-from torch.nn.functional import log_softmax
 from tqdm import tqdm
 
 from src.mias.mia_interface import MIAttack
 from src.mias.pac_mia.config import PACMIAParams
+from src.models.vllm_backend import get_prompt_token_logprobs, is_vllm_model
 
 logger = logging.getLogger(__name__)
 
@@ -17,27 +16,10 @@ logger = logging.getLogger(__name__)
 def _token_log_probs(text: str, model, tokenizer, max_length: int) -> np.ndarray:
     """Per-token log-probabilities for a single text (sequential, no padding)."""
     try:
-        inputs = tokenizer(
-            text,
-            max_length=max_length,
-            truncation=True,
-            return_tensors="pt",
-            padding=False,
-        ).to(model.device)
+        if not is_vllm_model(model):
+            raise RuntimeError("PACAttack requires the vLLM backend.")
 
-        with torch.no_grad():
-            logits = model(**inputs).logits
-            lp = log_softmax(logits, dim=-1)
-
-        seq_len = inputs["input_ids"].shape[1]
-        probs = [
-            lp[0, i, inputs["input_ids"][0, i + 1]].item()
-            for i in range(seq_len - 1)
-        ]
-
-        del inputs, logits, lp
-        torch.cuda.empty_cache()
-        return np.array(probs)
+        return get_prompt_token_logprobs(model, tokenizer, text, max_length)
     except Exception as e:
         logger.warning(f"Error computing token log-probs: {e}")
         return np.array([])

@@ -13,16 +13,9 @@ Research question: given a code sample, can an attack infer whether it was in th
 
 ### Target model and data sources
 
-Target model is StarCoder2, with the following variants (and sources for seen files):
+Target model is StarCoder2, the bigcode/starcoder2-3b variant. As mentioned in its main paper, it has been traained on the-stack-v2-train-smol, files considered as seen.
 
-- bigcode/starcoder2-3b trained on the-stack-v2-train-smol
-- bigcode/starcoder2-7b trained on the-stack-v2-train-smol
-- bigcode/starcoder2-15b trained on the-stack-v2-train-full (TODO adapt dataset loading script)
-
-For unseen files, this project relies on The Heap, deduplicated against The Stack v2 with:
-
-- exact_duplicates_stackv2 = false
-- near_duplicates_stackv2 = false
+For unseen files, this project relies on The Heap, deduplicated against The Stack v2 with exact_duplicates_stackv2 = false and near_duplicates_stackv2 = false.
 
 ### Validity limits
 

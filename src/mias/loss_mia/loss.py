@@ -1,13 +1,12 @@
 import logging
 from typing import List
 
-import numpy as np
 import pandas as pd
-import torch
 from tqdm import tqdm
 
 from src.mias.mia_interface import MIAttack
 from src.mias.loss_mia.config import LossMIAParams
+from src.models.vllm_backend import get_prompt_token_logprobs, is_vllm_model
 
 logger = logging.getLogger(__name__)
 
@@ -41,21 +40,18 @@ class LossMIA(MIAttack):
         texts = test_df["text"].tolist()
         scores = []
 
-        self.model.eval()
+        if not is_vllm_model(self.model):
+            raise RuntimeError("LossMIA requires the vLLM backend.")
+
         for text in tqdm(texts, desc="Computing loss scores"):
             try:
-                inputs = self.tokenizer(
+                token_log_probs = get_prompt_token_logprobs(
+                    self.model,
+                    self.tokenizer,
                     text,
-                    max_length=self.params.sequence_length,
-                    truncation=True,
-                    return_tensors="pt",
-                ).to(self.model.device)
-
-                with torch.no_grad():
-                    outputs = self.model(**inputs, labels=inputs["input_ids"].clone())
-
-                # Negative loss: higher score = lower loss = more likely member
-                scores.append(-outputs.loss.item())
+                    self.params.sequence_length,
+                )
+                scores.append(float(token_log_probs.mean()) if len(token_log_probs) else float("nan"))
             except Exception as e:
                 logger.warning(f"Error computing loss for sample: {e}")
                 scores.append(float("nan"))

@@ -2,8 +2,7 @@ import logging
 import time
 from typing import Dict, Optional
 
-import torch # type: ignore
-
+from src.models.vllm_backend import generate_text, is_vllm_model
 from .config import TraWiCParams
 
 logger = logging.getLogger(__name__)
@@ -74,15 +73,14 @@ def run_infill(
         Generated infill text
     """
     try:
-        is_vllm = model.__class__.__module__.startswith("vllm")
+        if not is_vllm_model(model):
+            raise RuntimeError("TraWiC requires the vLLM backend.")
 
-        # Tokenize
         tokenized = tokenizer(prompt, return_tensors="pt")
-        inputs = tokenized.to(device) if not is_vllm else tokenized
+        inputs = tokenized
 
         # Check if input is too long
         if inputs.input_ids.shape[1] + params.max_generated_tokens > params.max_total_tokens:
-            # logger.warning(f"    Input too long: {inputs.input_ids.shape[1]} tokens + {params.max_generated_tokens} max_tokens > {params.max_total_tokens}")
             return "too_many_tokens"
 
         # Build custom stopping tokens based on element type
@@ -116,31 +114,18 @@ def run_infill(
         logger.debug(f"    Using stopping tokens for {element_type}: {stop_strings} -> IDs: {eos_token_ids}")
 
         gen_start = time.time()
-        if is_vllm:
-            from vllm import SamplingParams
-
-            sampling_params = SamplingParams(
-                max_tokens=params.max_generated_tokens,
-                temperature=params.temperature,
-                top_p=params.top_p,
-                stop_token_ids=eos_token_ids,
-            )
-            outputs = model.generate(prompt, sampling_params=sampling_params)
-            generated_text = outputs[0].outputs[0].text if outputs and outputs[0].outputs else ""
-            full_output = f"{prompt}{generated_text}"
-        else:
-            with torch.no_grad():
-                outputs = model.generate(
-                    **inputs,
-                    max_new_tokens=params.max_generated_tokens,
-                    do_sample=True,
-                    temperature=params.temperature,
-                    top_p=params.top_p,
-                    pad_token_id=tokenizer.convert_tokens_to_ids(FIM_PAD),
-                    eos_token_id=eos_token_ids,
-                )
-            # Decode
-            full_output = tokenizer.decode(outputs[0], skip_special_tokens=False)
+        generated_text = generate_text(
+            model=model,
+            tokenizer=tokenizer,
+            prompt=prompt,
+            max_input_tokens=None,
+            max_generated_tokens=params.max_generated_tokens,
+            temperature=params.temperature,
+            top_p=params.top_p,
+            do_sample=True,
+            stop_token_ids=eos_token_ids,
+        )
+        full_output = f"{prompt}{generated_text}"
         gen_time = time.time() - gen_start
         logger.debug(f"    Model generation took {gen_time:.3f}s")
 

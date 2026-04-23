@@ -98,8 +98,7 @@ uv run --frozen --no-sync python -u -m src.main \
   --output_dir="$OUTDIR" \
   --mia="$MIA" \
   --model="$LLM" \
-  --sample_fraction="$SAMPLE_FRACTION" \
-  --infer_engine vllm
+  --sample_fraction="$SAMPLE_FRACTION"
 
 echo "=========================================="
 echo "Job completed at: $(date)"
