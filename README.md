@@ -1,7 +1,11 @@
 # AGG-MIA
 Research question: given a code sample, can an attack infer whether it was in the target model pretraining distribution (member vs non-member)?
 
-### Core assumptions
+### Target model and data sources
+
+The target model is StarCoder2, the bigcode/starcoder2-3b variant. As mentioned in its main paper, it has been trained on the-stack-v2-train-smol, files considered as seen.
+
+For unseen files, this project relies on The Heap, deduplicated against The Stack v2 with exact_duplicates_stackv2 = false and near_duplicates_stackv2 = false.
 
 - Data is provided as two parquet-backed sets:
   - seen: (presumed) members
@@ -10,12 +14,6 @@ Research question: given a code sample, can an attack infer whether it was in th
   - data/seen
   - data/unseen
 - Parquet rows contain content and optionally blob_id columns.
-
-### Target model and data sources
-
-Target model is StarCoder2, the bigcode/starcoder2-3b variant. As mentioned in its main paper, it has been traained on the-stack-v2-train-smol, files considered as seen.
-
-For unseen files, this project relies on The Heap, deduplicated against The Stack v2 with exact_duplicates_stackv2 = false and near_duplicates_stackv2 = false.
 
 ### Validity limits
 
@@ -59,63 +57,19 @@ Step 5: Classification (Membership Prediction): The 27-dimensional feature vecto
 
 ## Running MIAs
 
-This section is only about executing experiments.
+How to execute an experiment?
 
-### 1) Install
+### 1) Data setup (one-time)
 
-Base dependencies:
+To download (smol) files:
 
-```bash
-uv sync --frozen
-```
+1. `module load 2025 && module load python`
+2. Set `SWH_TOKEN` in the environment using: https://archive.softwareheritage.org/oidc/profile/#tokens
+3. Run from repo root: `uv run python src/datasets/download_seen.py`
+4. Run from repo root: `uv run python src/datasets/download_unseen.py`
+5. To check, run from repo root: `uv run python src/datasets/show_parquet_samples.py`
 
-If uv is not installed yet:
-
-```bash
-python -m pip install -U uv
-```
-
-
-### 2) Local run
-
-```bash
-uv run python -u -m src.main \
-  --mia trawic \
-  --model bigcode/starcoder2-3b \
-  --data_dir ./data \
-  --sample_fraction 0.01 \
-  --train_test_split 0.8 \
-  --batch_size 1 \
-  --seed 42 \
-  --output_dir ./output_runs/local_test
-```
-
-Key CLI arguments:
-
-- --mia: trawic | miaadv | loss | mkp | pac | bow
-- --model: Hugging Face model id
-- --infer_engine: hf | vllm (vllm currently supported for trawic)
-- --sample_fraction: fraction loaded from each split
-- --output_dir: destination for predictions and metrics
-
-### 3) DelftBlue run
-
-Use:
-
-```bash
-./submit_delftblue.sh
-```
-
-run_delftblue.sh controls cluster-side settings such as:
-
-- MIA, LLM, SAMPLE_FRACTION
-
-The job now runs with uv in locked, offline-safe mode (`uv run --frozen --no-sync ...`) on the DelftBlue Python module stack.
-The Python version is pinned in [.python-version](.python-version).
-
-### 3.1) Recreate DelftBlue environment (from scratch)
-
-Run once on DelftBlue:
+### 2) Recreate DelftBlue environment (from scratch, one-time)
 
 ```bash
 module purge
@@ -133,22 +87,44 @@ cd "$REPO_DIR"
 
 uv venv --python 3.12 --seed --managed-python
 source .venv/bin/activate
-uv pip install --only-binary vllm vllm --torch-backend=cu128
+uv pip install --only-binary vllm vllm --torch-backend=cu128 # Necessary to install vllm as a pre-built wheel!
 uv lock
 uv sync --frozen
 ```
 
 Use check_env.py to make sure the environment is correctly set up. (Un-comment the line in run_delftblue.sh)
 
-Submit jobs as usual:
+### 3) Submit DelftBlue job
+
+1. Make local changes.
+2. Sync and submit with:
 
 ```bash
 ./submit_delftblue.sh
 ```
 
-Important: submit_delftblue.sh currently auto-commits and pushes local changes before submission.
+- submit_delftblue.sh currently auto-commits and pushes local changes before submission.
+- run_delftblue.sh controls cluster-side settings such as: MIA, LLM, SAMPLE_FRACTION
 
-### 4) Outputs and metrics
+The job now runs with uv in locked, offline-safe mode (`uv run --frozen --no-sync ...`) on the DelftBlue Python module stack.
+
+The Python version is pinned in [.python-version](.python-version).
+
+3. See latest logs with:
+
+- Run in the folder from: #SBATCH --output=
+
+```bash
+tail -100f "$(ls -t | head -n 1)"
+```
+
+4. Copy outputs to local machine and clear remote run outputs with:
+
+```bash
+scp -r cosminvasilesc@login.delftblue.tudelft.nl:/scratch/cosminvasilesc/AGG_MIA/outputs/runs/* "C:\Coding_projects\AGG_MIA\output_runs" && ssh delftblue "rm -rf /scratch/cosminvasilesc/AGG_MIA/outputs/runs/*"
+```
+
+### 4) Results
 
 Each run writes:
 
@@ -176,42 +152,9 @@ uv run python -m src.results.scripts.recompute_metrics <predictions_csv>
 
 ---
 
-## Data Preparation
-
-To download (smol) files:
-
-1. `module load 2025 && module load python`
-2. Set `SWH_TOKEN` in the environment using: https://archive.softwareheritage.org/oidc/profile/#tokens
-3. Run from repo root: `uv run python src/datasets/download_seen.py`
-4. Run from repo root: `uv run python src/datasets/download_unseen.py`
-5. Run from repo root: `uv run python src/datasets/show_parquet_samples.py`
-
----
-
 ## Development
 
 This section is for modifying or extending the codebase.
-
-### Workflow
-
-1. Make local changes.
-2. Sync and submit with:
-
-```bash
-./submit_delftblue.sh
-```
-
-3. See latest logs with:
-
-```bash
-tail -100f "$(ls -t | head -n 1)"
-```
-
-4. Copy outputs to local machine and clear remote run outputs with:
-
-```bash
-scp -r cosminvasilesc@login.delftblue.tudelft.nl:/scratch/cosminvasilesc/AGG-MIA/outputs/runs/* "C:\Coding_projects\AGG_MIA\output_runs" && ssh delftblue "rm -rf /scratch/cosminvasilesc/AGG-MIA/outputs/runs/*"
-```
 
 ### Project map
 
@@ -253,8 +196,8 @@ Current tests are mainly in src/mias/trawic/tests.
 
 ## Future research paths
 
-In order of priority:
 1. experiment with llm acceleration to improve attack speed (vLLM)
+   - partly done, needs testing and optimization
 1. miaadv: Experiment with the influence of having a whitespace around the split point, possibly interacting with the tokenization and affecting accuracy/ tokenize-then-split or split-then-tokenize (more tokens in either of these? -> what is being split)
 1. trawic: Experiment with different max_total_tokens and max_elements_per_type (assumed tradeoff between attack speed and accuracy)
 1. trawic: switch to parsing instead of using regex to find syntactic and semantic identifiers
